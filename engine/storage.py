@@ -22,7 +22,12 @@ MAX_PRESIGNED_EXPIRY_SECONDS = 604800  # 7 days
 LEGACY_PRODUCTION_SLOTS = ("morning", "evening")
 VALID_RUN_KINDS = ("scheduled", "manual_production", "test")
 LEGACY_TRANSLATION_STACK_GAP_MAP = {4: 10, 6: 20, 8: 30}
-LEGACY_ARABIC_TRANSLATION_GAP_MAP = {6: 20, 8: 40, 10: 20, 15: 40, 20: 60}
+ARABIC_TRANSLATION_GAPS = (80, 100, 120)
+ARABIC_TRANSLATION_GAP_VERSION = 3
+LEGACY_ARABIC_TRANSLATION_GAPS = {
+    1: {6: 80, 8: 100, 10: 80, 15: 100, 20: 120, 40: 100, 60: 120},
+    2: {20: 80, 40: 100, 60: 120},
+}
 LEGACY_TRANSLATION_FONT_SIZE_MAP = {60: 50, 55: 40, 50: 30}
 
 VALID_SLOTS = (*LEGACY_PRODUCTION_SLOTS, "manual-production", "test")
@@ -158,8 +163,8 @@ class StoredConfig:
     translation_font_size: int = 50
     arabic_max_lines: int = 2
     translation_max_lines: int = 2
-    arabic_translation_gap_px: int = 20
-    arabic_translation_gap_version: int = 2
+    arabic_translation_gap_px: int = 80
+    arabic_translation_gap_version: int = ARABIC_TRANSLATION_GAP_VERSION
     translation_stack_gap_px: int = 10
     arabic_line_spacing: float = 1.15
     translation_line_spacing: float = 1.25
@@ -194,10 +199,10 @@ class StoredConfig:
             raise StorageError("target_background_clips must be between 1 and 3.")
         if self.max_background_clips < 1 or self.max_background_clips > 3:
             raise StorageError("max_background_clips must be between 1 and 3.")
-        if self.arabic_translation_gap_version != 2:
+        if self.arabic_translation_gap_version != ARABIC_TRANSLATION_GAP_VERSION:
             raise StorageError("Unsupported arabic_translation_gap_version.")
-        if self.arabic_translation_gap_px not in (20, 40, 60):
-            raise StorageError("arabic_translation_gap_px must be 20, 40, or 60.")
+        if self.arabic_translation_gap_px not in ARABIC_TRANSLATION_GAPS:
+            raise StorageError("arabic_translation_gap_px must be 80, 100, or 120.")
         if self.translation_stack_gap_px not in (10, 20, 30):
             raise StorageError("translation_stack_gap_px must be 10, 20, or 30.")
         if self.translation_font_size not in (30, 40, 50):
@@ -579,6 +584,24 @@ def stored_config_to_dict(config: StoredConfig) -> dict[str, Any]:
     return data
 
 
+def stored_arabic_translation_gap(data: Mapping[str, Any]) -> int:
+    """Resolve a persisted preset to its current spacing while preserving the selected rank."""
+    version = data.get("arabic_translation_gap_version", 1)
+    if type(version) is not int or version not in (1, 2, ARABIC_TRANSLATION_GAP_VERSION):
+        raise StorageError("Unsupported arabic_translation_gap_version.")
+    if "arabic_translation_gap_px" not in data:
+        return 80
+    raw = data["arabic_translation_gap_px"]
+    if version == ARABIC_TRANSLATION_GAP_VERSION:
+        if raw not in ARABIC_TRANSLATION_GAPS:
+            raise StorageError("arabic_translation_gap_px must be 80, 100, or 120.")
+        return int(raw)
+    try:
+        return LEGACY_ARABIC_TRANSLATION_GAPS[version][int(raw)]
+    except (KeyError, TypeError, ValueError, OverflowError):
+        raise StorageError("Invalid arabic_translation_gap_px for the stored preset version.") from None
+
+
 def stored_config_from_dict(data: Mapping[str, Any]) -> StoredConfig:
     schema_v = data.get("schema_version", CURRENT_SCHEMA_VERSION)
     raw_schedule = data.get("publishing_schedule")
@@ -620,15 +643,6 @@ def stored_config_from_dict(data: Mapping[str, Any]) -> StoredConfig:
             )
     raw_stack_gap = int(data.get("translation_stack_gap_px", 10))
     migrated_stack_gap = LEGACY_TRANSLATION_STACK_GAP_MAP.get(raw_stack_gap, raw_stack_gap)
-    gap_version = data.get("arabic_translation_gap_version", 1)
-    if type(gap_version) is not int or gap_version not in (1, 2):
-        raise StorageError("Unsupported arabic_translation_gap_version.")
-    raw_arabic_gap = int(data.get("arabic_translation_gap_px", 20))
-    migrated_arabic_gap = (
-        LEGACY_ARABIC_TRANSLATION_GAP_MAP.get(raw_arabic_gap, raw_arabic_gap)
-        if gap_version == 1 and "arabic_translation_gap_px" in data
-        else raw_arabic_gap
-    )
     has_legacy_indicators = (
         data.get("arabic_translation_gap_px") in (6, 8)
         or data.get("translation_stack_gap_px") in (4, 6, 8)
@@ -671,7 +685,7 @@ def stored_config_from_dict(data: Mapping[str, Any]) -> StoredConfig:
         translation_font_size=migrated_font_size,
         arabic_max_lines=int(data.get("arabic_max_lines", 2)),
         translation_max_lines=int(data.get("translation_max_lines", 2)),
-        arabic_translation_gap_px=migrated_arabic_gap,
+        arabic_translation_gap_px=stored_arabic_translation_gap(data),
         translation_stack_gap_px=migrated_stack_gap,
         arabic_line_spacing=float(data.get("arabic_line_spacing", 1.15)),
         translation_line_spacing=float(data.get("translation_line_spacing", 1.25)),

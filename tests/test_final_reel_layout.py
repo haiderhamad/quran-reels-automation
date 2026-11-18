@@ -56,6 +56,26 @@ class TestFinalReelLayout(unittest.TestCase):
         with self.assertRaises(SubtitleError):
             calculate_multilingual_subtitle_group_layout(TextBlockBounds(-461,0,460,100,1),[tr],SubtitleConfig())
 
+    def test_saved_spacing_reaches_rendered_layout(self):
+        from engine.job import build_render_config_from_stored_config
+
+        arabic = TextBlockBounds(-200, 0, 200, 120, 1)
+        translation = TextBlockBounds(-150, 0, 150, 60, 1)
+        settings = (
+            ({}, 80),
+            ({"arabic_translation_gap_version": 2, "arabic_translation_gap_px": 40}, 100),
+            ({"arabic_translation_gap_version": 3, "arabic_translation_gap_px": 120}, 120),
+        )
+        for saved, expected_gap in settings:
+            config = build_render_config_from_stored_config(stored_config_from_dict(saved)).subtitle_config
+            layout = calculate_multilingual_subtitle_group_layout(arabic, [translation, translation], config)
+            self.assertEqual(layout.translation_visible_ranges[0][0] - layout.arabic_visible_bottom_y, expected_gap)
+            self.assertEqual(layout.translation_visible_ranges[1][0] - layout.translation_visible_ranges[0][1], 10)
+            self.assertEqual(build_render_config_from_stored_config(saved).subtitle_config.arabic_translation_gap_px,
+                             expected_gap)
+        with self.assertRaises(SubtitleError):
+            SubtitleConfig(arabic_translation_gap_px=121)
+
     def test_natural_line_pixels_are_preserved_and_gaps_scale(self):
         ffmpeg=resolve_ffmpeg_binary()
         with tempfile.TemporaryDirectory() as directory:

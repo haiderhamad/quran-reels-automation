@@ -28,7 +28,7 @@ describe("StoredConfigSchema", () => {
     expect(parsed.translation_font_size).toBe(50);
     expect(parsed.arabic_max_lines).toBe(2);
     expect(parsed.translation_max_lines).toBe(2);
-    expect(parsed.arabic_translation_gap_px).toBe(20);
+    expect(parsed.arabic_translation_gap_px).toBe(80);
     expect(parsed.translation_stack_gap_px).toBe(10);
     expect(parsed.publishing_schedule).toEqual([
       { id: "morning", time: "08:00", enabled: false },
@@ -171,13 +171,25 @@ describe("StoredConfigSchema", () => {
     expect(() => StoredConfigSchema.parse({ translation_stack_gap_px: 12 })).toThrow();
   });
 
-  it("accepts final arabic gaps and migrates legacy values", () => {
-    for (const gap of [20, 40, 60]) {
-      expect(StoredConfigSchema.parse({ arabic_translation_gap_version: 2, arabic_translation_gap_px: gap }).arabic_translation_gap_px).toBe(gap);
+  it("preserves the selected Arabic spacing preset across stored versions", () => {
+    for (const [version, saved, current] of [
+      [1, 6, 80], [1, 8, 100], [1, 10, 80], [1, 15, 100], [1, 20, 120],
+      [1, 40, 100], [1, 60, 120], [2, 20, 80], [2, 40, 100], [2, 60, 120],
+      [3, 80, 80], [3, 100, 100], [3, 120, 120],
+    ]) {
+      const config = StoredConfigSchema.parse({
+        arabic_translation_gap_version: version, arabic_translation_gap_px: saved,
+      });
+      expect(config.arabic_translation_gap_version).toBe(3);
+      expect(config.arabic_translation_gap_px).toBe(current);
+      expect(StoredConfigSchema.parse(config)).toEqual(config);
     }
-    expect(StoredConfigSchema.parse({ arabic_translation_gap_px: 6 }).arabic_translation_gap_px).toBe(20);
-    expect(StoredConfigSchema.parse({ arabic_translation_gap_px: 8 }).arabic_translation_gap_px).toBe(40);
-    expect(() => StoredConfigSchema.parse({ arabic_translation_gap_px: 7 })).toThrow();
+    for (const version of [undefined, 1, 2, 3]) {
+      expect(StoredConfigSchema.parse({ arabic_translation_gap_version: version }).arabic_translation_gap_px).toBe(80);
+    }
+    for (const [version, gap] of [[1, 7], [1, 80], [2, 100], [3, 60], [3, 90], [4, 120]]) {
+      expect(() => StoredConfigSchema.parse({ arabic_translation_gap_version: version, arabic_translation_gap_px: gap })).toThrow();
+    }
   });
 
   it("accepts final translation font sizes and migrates legacy values", () => {

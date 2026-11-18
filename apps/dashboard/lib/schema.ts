@@ -35,11 +35,17 @@ function migrateLegacyConfig(value: unknown): unknown {
   const rawStackGap = typeof raw.translation_stack_gap_px === "number"
     ? raw.translation_stack_gap_px
     : 10;
-  const legacyArabicGapMap: Record<number, 20 | 40 | 60> = { 6: 20, 8: 40, 10: 20, 15: 40, 20: 60 };
   const gapVersion = raw.arabic_translation_gap_version === undefined ? 1 : raw.arabic_translation_gap_version;
-  const rawArabicGap = typeof raw.arabic_translation_gap_px === "number"
-    ? raw.arabic_translation_gap_px
-    : 20;
+  const arabicGapPresets: Record<number, number> = { 20: 80, 40: 100, 60: 120 };
+  const legacyArabicGapPresets: Record<number, number> = {
+    ...arabicGapPresets, 6: 80, 8: 100, 10: 80, 15: 100, 20: 120,
+  };
+  let arabicGap = raw.arabic_translation_gap_px;
+  if ((gapVersion === 1 || gapVersion === 2) && typeof arabicGap === "number") {
+    const presets = gapVersion === 1 ? legacyArabicGapPresets : arabicGapPresets;
+    // Keep unsupported historical values invalid instead of inferring a preset.
+    arabicGap = presets[arabicGap] ?? null;
+  }
   const hasLegacyIndicators =
     raw.arabic_translation_gap_px === 6 ||
     raw.arabic_translation_gap_px === 8 ||
@@ -65,9 +71,8 @@ function migrateLegacyConfig(value: unknown): unknown {
   const migrated = {
     ...raw,
     ...(migratedFontSize !== undefined ? { translation_font_size: migratedFontSize } : {}),
-    arabic_translation_gap_px: gapVersion === 1 && raw.arabic_translation_gap_px !== undefined
-      ? legacyArabicGapMap[rawArabicGap] ?? rawArabicGap : rawArabicGap,
-    arabic_translation_gap_version: gapVersion === 1 ? 2 : gapVersion,
+    arabic_translation_gap_px: arabicGap,
+    arabic_translation_gap_version: gapVersion === 1 || gapVersion === 2 ? 3 : gapVersion,
     translation_stack_gap_px: legacyStackGapMap[rawStackGap] ?? rawStackGap,
   };
   if (Array.isArray(raw.publishing_schedule)) return migrated;
@@ -164,8 +169,8 @@ const StoredConfigObjectSchema = z
     translation_font_size: z.union([z.literal(50), z.literal(40), z.literal(30)]).default(50),
     arabic_max_lines: z.number().int().min(1).max(5).default(2),
     translation_max_lines: z.number().int().min(1).max(5).default(2),
-    arabic_translation_gap_px: z.union([z.literal(20), z.literal(40), z.literal(60)]).default(20),
-    arabic_translation_gap_version: z.literal(2).default(2),
+    arabic_translation_gap_px: z.union([z.literal(80), z.literal(100), z.literal(120)]).default(80),
+    arabic_translation_gap_version: z.literal(3).default(3),
     translation_stack_gap_px: z.union([z.literal(10), z.literal(20), z.literal(30)]).default(10),
     arabic_line_spacing: z.number().min(0.95).max(1.60).default(1.15),
     translation_line_spacing: z.number().min(1.0).max(1.6).default(1.25),

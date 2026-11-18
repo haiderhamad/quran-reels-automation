@@ -38,3 +38,18 @@ describe("editable Admin Dashboard publishing times", () => {
     expect(section).toContain("Choose 1–3 distinct times");
   });
 });
+
+describe("Arabic to translation spacing controls", () => {
+  it("shows the new pixel values with the previously saved Wide option selected", () => {
+    const config = StoredConfigSchema.parse({ arabic_translation_gap_version: 2, arabic_translation_gap_px: 60 });
+    const html = renderToStaticMarkup(React.createElement(SettingsForm, {
+      initialConfig: config, configWritable: true,
+      systemStatus: { scheduler: "active" } as SystemConnectionStatus,
+    }));
+    const section = html.slice(html.indexOf("Arabic ↔ Translation Spacing"), html.indexOf("English ↔ German Gap"));
+    expect(section.match(/type="radio"/g)).toHaveLength(3);
+    expect(section).toContain("Standard — 80px");
+    expect(section).toContain("Medium — 100px");
+    expect(section).toMatch(/<input[^>]*checked=""[^>]*\/>Wide — 120px/);
+  });
+});

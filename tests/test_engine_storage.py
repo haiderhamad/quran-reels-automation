@@ -156,7 +156,7 @@ class TestStoredConfigModel(unittest.TestCase):
         self.assertEqual(cfg.target_background_clips, 1)
         self.assertEqual(cfg.arabic_font_size, 180)
         self.assertEqual(cfg.translation_font_size, 50)
-        self.assertEqual(cfg.arabic_translation_gap_px, 20)
+        self.assertEqual(cfg.arabic_translation_gap_px, 80)
         self.assertEqual(cfg.translation_stack_gap_px, 10)
         self.assertTrue(cfg.instagram_enabled)
         self.assertTrue(cfg.facebook_enabled)
@@ -277,7 +277,7 @@ class TestStoredConfigModel(unittest.TestCase):
     def test_language_and_spacing_presets_are_exact(self) -> None:
         for languages in (("en",), ("de",), ("en", "de")):
             self.assertEqual(StoredConfig(translation_languages=languages).translation_languages, languages)
-        for gap in (20, 40, 60):
+        for gap in (80, 100, 120):
             self.assertEqual(StoredConfig(arabic_translation_gap_px=gap).arabic_translation_gap_px, gap)
         for gap in (10, 20, 30):
             self.assertEqual(StoredConfig(translation_stack_gap_px=gap).translation_stack_gap_px, gap)
@@ -300,16 +300,29 @@ class TestStoredConfigModel(unittest.TestCase):
         self.assertEqual(stored_config_from_dict({"translation_stack_gap_px": 8}).translation_stack_gap_px, 30)
 
     def test_legacy_arabic_translation_gaps_are_migrated_semantically(self) -> None:
-        for old, new in ((6, 20), (8, 40), (10, 20), (15, 40), (20, 60)):
-            self.assertEqual(stored_config_from_dict({"arabic_translation_gap_px": old}).arabic_translation_gap_px, new)
-        for gap in (20, 40, 60):
-            cfg = StoredConfig(arabic_translation_gap_px=gap)
-            serialized = stored_config_to_dict(cfg)
-            self.assertEqual(serialized["arabic_translation_gap_version"], 2)
-            self.assertEqual(stored_config_from_dict(serialized), cfg)
-        for version in (0, 3, "2", True):
+        v1 = {6: 80, 8: 100, 10: 80, 15: 100, 20: 120, 40: 100, 60: 120}
+        for version in ({}, {"arabic_translation_gap_version": 1}):
+            for old, new in v1.items():
+                config = stored_config_from_dict({**version, "arabic_translation_gap_px": old})
+                self.assertEqual(config.arabic_translation_gap_px, new)
+        for old, new in ((20, 80), (40, 100), (60, 120)):
+            legacy = {"arabic_translation_gap_version": 2, "arabic_translation_gap_px": old}
+            config = stored_config_from_dict(legacy)
+            self.assertEqual(config.arabic_translation_gap_px, new)
+            serialized = stored_config_to_dict(config)
+            self.assertEqual(serialized["arabic_translation_gap_version"], 3)
+            self.assertEqual(stored_config_from_dict(serialized), config)
+        for version in (1, 2, 3):
+            self.assertEqual(stored_config_from_dict({"arabic_translation_gap_version": version}).arabic_translation_gap_px, 80)
+        for version in (0, 4, "2", True):
             with self.assertRaises(StorageError):
                 stored_config_from_dict({"arabic_translation_gap_version": version})
+        for version, gap in ((1, 80), (2, 80), (2, 10), (3, 60), (3, 121)):
+            with self.assertRaises(StorageError):
+                stored_config_from_dict({"arabic_translation_gap_version": version, "arabic_translation_gap_px": gap})
+        for invalid in (80.9, "80", None, True):
+            with self.subTest(invalid=invalid), self.assertRaises(StorageError):
+                stored_config_from_dict({"arabic_translation_gap_version": 3, "arabic_translation_gap_px": invalid})
 
     def test_legacy_translation_font_sizes_are_migrated_semantically(self) -> None:
         self.assertEqual(stored_config_from_dict({"translation_font_size": 60}).translation_font_size, 50)

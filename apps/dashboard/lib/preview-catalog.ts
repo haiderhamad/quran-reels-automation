@@ -8,7 +8,7 @@ export const DEFAULT_PREVIEW_CASE: PreviewCase = "2-line";
 export const PREVIEW_CATALOG_DIRECTORY = "v3";
 export const PREVIEW_CATALOG_MANIFEST_FILENAME = "workspace.json";
 export const PREVIEW_CATALOG_MANIFEST_URL = "/previews/v3/workspace.json";
-export const PREVIEW_ARABIC_GAPS = [20, 40, 60] as const;
+export const PREVIEW_ARABIC_GAPS = [80, 100, 120] as const;
 export const PREVIEW_LAYOUT_COUNT = 19620;
 
 export interface PreviewGlyph {
@@ -95,8 +95,8 @@ export const DEFAULT_PREVIEW_STYLE: Partial<StoredConfig> = {
   translation_font_size: 50,
   arabic_max_lines: 2,
   translation_max_lines: 2,
-  arabic_translation_gap_px: 20,
-  arabic_translation_gap_version: 2,
+  arabic_translation_gap_px: 80,
+  arabic_translation_gap_version: 3,
   translation_stack_gap_px: 10,
   arabic_line_spacing: 1.15,
   translation_line_spacing: 1.25,

@@ -164,7 +164,7 @@ class SubtitleConfig:
     translation_font_size: int = 50
     arabic_max_lines: int = 2
     translation_max_lines: int = 2
-    arabic_translation_gap_px: int = 20
+    arabic_translation_gap_px: int = 80
     translation_stack_gap_px: int = 10
     arabic_line_spacing: float = 1.15
     translation_line_spacing: float = 1.25
@@ -195,8 +195,8 @@ class SubtitleConfig:
             raise SubtitleError(f"arabic_max_lines must be 1–5, got {self.arabic_max_lines}")
         if not (1 <= self.translation_max_lines <= 5):
             raise SubtitleError(f"translation_max_lines must be 1–5, got {self.translation_max_lines}")
-        if not (2 <= self.arabic_translation_gap_px <= 60):
-            raise SubtitleError(f"arabic_translation_gap_px must be 2–60, got {self.arabic_translation_gap_px}")
+        if not (2 <= self.arabic_translation_gap_px <= 120):
+            raise SubtitleError(f"arabic_translation_gap_px must be 2–120, got {self.arabic_translation_gap_px}")
         if self.translation_stack_gap_px not in (10, 20, 30):
             raise SubtitleError(
                 f"translation_stack_gap_px must be 10, 20, or 30, got {self.translation_stack_gap_px}"

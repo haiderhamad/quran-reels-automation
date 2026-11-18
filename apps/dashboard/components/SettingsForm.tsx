@@ -474,7 +474,7 @@ export function SettingsForm({
               </div>
               <div className="form-group">
                 <label className="form-label">Arabic ↔ Translation Spacing</label>
-                {([[20, "Standard"], [40, "Medium"], [60, "Wide"]] as const).map(([value, label]) => (
+                {([[80, "Standard"], [100, "Medium"], [120, "Wide"]] as const).map(([value, label]) => (
                   <label key={value} className="preset-option"><input type="radio" name="arabic-gap" checked={config.arabic_translation_gap_px === value} onChange={() => setConfig({ ...config, arabic_translation_gap_px: value })} />{label} — {value}px</label>
                 ))}
               </div>

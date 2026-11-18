@@ -34,8 +34,8 @@ describe("static renderer workspace", () => {
     });
   });
 
-  it("changes actual layout immediately for each 20/40/60 pixel setting", () => {
-    expect(PREVIEW_ARABIC_GAPS).toEqual([20, 40, 60]);
+  it("changes actual layout immediately for each 80/100/120 pixel setting", () => {
+    expect(PREVIEW_ARABIC_GAPS).toEqual([80, 100, 120]);
     const previews = PREVIEW_ARABIC_GAPS.map(gap => selectPreview(manifest, { ...defaults, arabic_translation_gap_px: gap }, "2-line"));
     previews.forEach((preview, i) => {
       const ar = preview.glyphs[0];
@@ -79,15 +79,15 @@ describe("static renderer workspace", () => {
   });
 
   it("migrates historical values once and preserves new settings through serialization", () => {
-    for (const [old, current] of [[6, 20], [8, 40], [10, 20], [15, 40], [20, 60]]) {
+    for (const [old, current] of [[6, 80], [8, 100], [10, 80], [15, 100], [20, 120]]) {
       const config = StoredConfigSchema.parse({ arabic_translation_gap_px: old });
       expect(config.arabic_translation_gap_px).toBe(current);
-      expect(config.arabic_translation_gap_version).toBe(2);
+      expect(config.arabic_translation_gap_version).toBe(3);
       expect(StoredConfigSchema.parse(JSON.parse(JSON.stringify(config)))).toEqual(config);
     }
-    for (const version of [0, 3, "2", true, null]) expect(() => StoredConfigSchema.parse({ arabic_translation_gap_version: version })).toThrow();
-    expect(DEFAULT_PREVIEW_STYLE.arabic_translation_gap_px).toBe(20);
-    expect(DEFAULT_PREVIEW_STYLE.arabic_translation_gap_version).toBe(2);
+    for (const version of [0, 4, "2", true, null]) expect(() => StoredConfigSchema.parse({ arabic_translation_gap_version: version })).toThrow();
+    expect(DEFAULT_PREVIEW_STYLE.arabic_translation_gap_px).toBe(80);
+    expect(DEFAULT_PREVIEW_STYLE.arabic_translation_gap_version).toBe(3);
   });
   it("shares hard safe margins and normalizes persisted header offsets", () => {
     expect(manifest.safe_zone).toEqual({ x: 80, y: 80, right: 1000, bottom: 1800, width: 920, height: 1720 });

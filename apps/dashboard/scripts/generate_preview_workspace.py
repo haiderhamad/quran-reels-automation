@@ -37,7 +37,7 @@ SAMPLES_PATH = Path(__file__).parent / "assets/preview-samples.json"
 SAMPLES = json.loads(SAMPLES_PATH.read_text())
 ARABIC_SIZES = range(72, 181)  # Include odd persisted values as well as slider steps.
 TR_SIZES = (50, 40, 30)
-GAPS = (20, 40, 60)
+GAPS = (80, 100, 120)
 LANGUAGES = (("en",), ("de",), ("en", "de"))
 
 

@@ -459,17 +459,16 @@ class TestRuntimeRetryAndRobustness(unittest.TestCase):
         self.assertEqual(len(selected_allowed), 1)
 
     def test_runtime_render_fingerprint_matches_app_config_and_stored_robustness(self):
-        from engine.storage import StoredConfig
         from engine.job import build_render_config_from_stored_config
 
-        # Version 2 Standard spacing builds a stable canonical RenderConfig
-        stored_cfg = StoredConfig(
-            arabic_font_size=170,
-            translation_font_size=50,
-            arabic_translation_gap_px=20,
-            translation_stack_gap_px=30,
-        )
-        render_cfg = build_render_config_from_stored_config(stored_cfg)
+        # Replay the exact v2 pixel fixture against its historical qualification.
+        display = {
+            "arabic_font_size": 170, "translation_font_size": 50,
+            "arabic_translation_gap_px": 20, "translation_stack_gap_px": 30,
+        }
+        render_cfg = build_render_config_from_stored_config(display)
+        migrated = build_render_config_from_stored_config({**display, "arabic_translation_gap_version": 2})
+        self.assertNotEqual(compute_render_config_fingerprint(migrated), compute_render_config_fingerprint(render_cfg))
         runtime_fp = compute_render_config_fingerprint(render_cfg)
 
         # The corrected person preprocessing invalidates earlier qualifications.
