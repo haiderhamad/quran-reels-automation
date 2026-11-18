@@ -157,7 +157,7 @@ class TestStoredConfigModel(unittest.TestCase):
         self.assertEqual(cfg.arabic_font_size, 180)
         self.assertEqual(cfg.translation_font_size, 50)
         self.assertEqual(cfg.arabic_translation_gap_px, 80)
-        self.assertEqual(cfg.translation_stack_gap_px, 10)
+        self.assertEqual(cfg.translation_stack_gap_px, 80)
         self.assertTrue(cfg.instagram_enabled)
         self.assertTrue(cfg.facebook_enabled)
         self.assertFalse(cfg.reciter_reuse_confirmed)
@@ -279,7 +279,7 @@ class TestStoredConfigModel(unittest.TestCase):
             self.assertEqual(StoredConfig(translation_languages=languages).translation_languages, languages)
         for gap in (80, 100, 120):
             self.assertEqual(StoredConfig(arabic_translation_gap_px=gap).arabic_translation_gap_px, gap)
-        for gap in (10, 20, 30):
+        for gap in (80, 100, 120):
             self.assertEqual(StoredConfig(translation_stack_gap_px=gap).translation_stack_gap_px, gap)
         for size in (50, 40, 30):
             self.assertEqual(StoredConfig(translation_font_size=size).translation_font_size, size)
@@ -295,9 +295,17 @@ class TestStoredConfigModel(unittest.TestCase):
             stored_config_from_dict({"publishing_schedule": []})
 
     def test_legacy_translation_stack_gaps_are_migrated_semantically(self) -> None:
-        self.assertEqual(stored_config_from_dict({"translation_stack_gap_px": 4}).translation_stack_gap_px, 10)
-        self.assertEqual(stored_config_from_dict({"translation_stack_gap_px": 6}).translation_stack_gap_px, 20)
-        self.assertEqual(stored_config_from_dict({"translation_stack_gap_px": 8}).translation_stack_gap_px, 30)
+        for before, expected in ((4, 80), (6, 100), (8, 120), (10, 80), (20, 100), (30, 120),
+                                 (80, 80), (100, 100), (120, 120)):
+            with self.subTest(before=before):
+                config = stored_config_from_dict({"translation_stack_gap_px": before})
+                self.assertEqual(config.translation_stack_gap_px, expected)
+                saved = stored_config_to_dict(config)
+                self.assertEqual(saved["translation_stack_gap_px"], expected)
+                self.assertEqual(stored_config_from_dict(saved), config)
+        for invalid in (80.5, "80", None, True, 121):
+            with self.subTest(invalid=invalid), self.assertRaises(StorageError):
+                stored_config_from_dict({"translation_stack_gap_px": invalid})
 
     def test_legacy_arabic_translation_gaps_are_migrated_semantically(self) -> None:
         v1 = {6: 80, 8: 100, 10: 80, 15: 100, 20: 120, 40: 100, 60: 120}

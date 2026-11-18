@@ -31,10 +31,8 @@ export type PublishingScheduleEntry = z.infer<typeof PublishingScheduleEntrySche
 function migrateLegacyConfig(value: unknown): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const raw = value as Record<string, unknown>;
-  const legacyStackGapMap: Record<number, 10 | 20 | 30> = { 4: 10, 6: 20, 8: 30 };
-  const rawStackGap = typeof raw.translation_stack_gap_px === "number"
-    ? raw.translation_stack_gap_px
-    : 10;
+  const legacyStackGapMap: Record<number, number> = { 4: 80, 10: 80, 6: 100, 20: 100, 8: 120, 30: 120 };
+  const rawStackGap = raw.translation_stack_gap_px;
   const gapVersion = raw.arabic_translation_gap_version === undefined ? 1 : raw.arabic_translation_gap_version;
   const arabicGapPresets: Record<number, number> = { 20: 80, 40: 100, 60: 120 };
   const legacyArabicGapPresets: Record<number, number> = {
@@ -73,7 +71,7 @@ function migrateLegacyConfig(value: unknown): unknown {
     ...(migratedFontSize !== undefined ? { translation_font_size: migratedFontSize } : {}),
     arabic_translation_gap_px: arabicGap,
     arabic_translation_gap_version: gapVersion === 1 || gapVersion === 2 ? 3 : gapVersion,
-    translation_stack_gap_px: legacyStackGapMap[rawStackGap] ?? rawStackGap,
+    translation_stack_gap_px: typeof rawStackGap === "number" ? legacyStackGapMap[rawStackGap] ?? rawStackGap : rawStackGap,
   };
   if (Array.isArray(raw.publishing_schedule)) return migrated;
 
@@ -171,7 +169,7 @@ const StoredConfigObjectSchema = z
     translation_max_lines: z.number().int().min(1).max(5).default(2),
     arabic_translation_gap_px: z.union([z.literal(80), z.literal(100), z.literal(120)]).default(80),
     arabic_translation_gap_version: z.literal(3).default(3),
-    translation_stack_gap_px: z.union([z.literal(10), z.literal(20), z.literal(30)]).default(10),
+    translation_stack_gap_px: z.union([z.literal(80), z.literal(100), z.literal(120)]).default(80),
     arabic_line_spacing: z.number().min(0.95).max(1.60).default(1.15),
     translation_line_spacing: z.number().min(1.0).max(1.6).default(1.25),
     text_outline: z

@@ -480,7 +480,7 @@ export function SettingsForm({
               </div>
               <div className="form-group" style={{ opacity: config.translation_languages.length === 2 ? 1 : 0.55 }}>
                 <label className="form-label">English ↔ German Gap</label>
-                {([[10, "Compact"], [20, "Medium"], [30, "Wide"]] as const).map(([value, label]) => (
+                {([[80, "Compact"], [100, "Medium"], [120, "Wide"]] as const).map(([value, label]) => (
                   <label key={value} className="preset-option"><input type="radio" name="translation-stack-gap" disabled={config.translation_languages.length !== 2} checked={config.translation_stack_gap_px === value} onChange={() => setConfig({ ...config, translation_stack_gap_px: value })} />{label} — {value}px</label>
                 ))}
                 <p className="form-hint">Used only when English and German are both enabled.</p>

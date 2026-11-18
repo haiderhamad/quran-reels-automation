@@ -45,6 +45,17 @@ describe("static renderer workspace", () => {
     expect(new Set(previews.map(p => p.layout.tops[1])).size).toBe(3);
   });
 
+  it("uses the selected English–German pixel gap only for bilingual layouts", () => {
+    for (const gap of [80, 100, 120] as const) {
+      const config = { ...defaults, translation_stack_gap_px: gap };
+      const dual = selectPreview(manifest, { ...config, translation_languages: ["en", "de"] }, "2-line");
+      const english = dual.glyphs[1];
+      const englishBottom = dual.layout.tops[1] + english.bottom_offset - english.top_offset;
+      expect(dual.layout.tops[2] - englishBottom).toBe(gap);
+      expect(selectPreview(manifest, { ...config, translation_languages: ["en"] }, "2-line").key).toMatch(/\/en\/0$/);
+    }
+  });
+
   it("previews every supported font size and language combination without changing settings", () => {
     const config = structuredClone(defaults);
     const before = JSON.stringify(config);

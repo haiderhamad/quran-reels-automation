@@ -104,7 +104,7 @@ def generate():
                         "visual_line_ranges": visual_ranges}
             print(f'Glyphs: {sample["id"]}', flush=True)
             for ar_size, tr_size, gap, languages in itertools.product(ARABIC_SIZES, TR_SIZES, GAPS, LANGUAGES):
-                for stack in (10, 20, 30) if len(languages) == 2 else (10,):
+                for stack in (80, 100, 120) if len(languages) == 2 else (80,):
                     keys = [f'{sample["id"]}-arabic-{ar_size}', *[f'{sample["id"]}-{lang}-{tr_size}' for lang in languages]]
                     bounds = [TextBlockBounds(**{k: v for k, v in manifest['glyphs'][key].items() if k in TextBlockBounds.__dataclass_fields__}) for key in keys]
                     config = SubtitleConfig(arabic_font_size=ar_size, translation_font_size=tr_size,

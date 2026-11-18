@@ -97,7 +97,7 @@ export const DEFAULT_PREVIEW_STYLE: Partial<StoredConfig> = {
   translation_max_lines: 2,
   arabic_translation_gap_px: 80,
   arabic_translation_gap_version: 3,
-  translation_stack_gap_px: 10,
+  translation_stack_gap_px: 80,
   arabic_line_spacing: 1.15,
   translation_line_spacing: 1.25,
   text_outline: "minimal",

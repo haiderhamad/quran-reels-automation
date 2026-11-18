@@ -53,3 +53,21 @@ describe("Arabic to translation spacing controls", () => {
     expect(section).toMatch(/<input[^>]*checked=""[^>]*\/>Wide — 120px/);
   });
 });
+
+describe("English to German spacing controls", () => {
+  it.each([{ languages: ["en"] }, { languages: ["de"] }, { languages: ["en", "de"] }])(
+    "preserves Wide and gates the controls for $languages", ({ languages }) => {
+      const config = StoredConfigSchema.parse({ translation_stack_gap_px: 30, translation_languages: languages });
+      const html = renderToStaticMarkup(React.createElement(SettingsForm, {
+        initialConfig: config, configWritable: true,
+        systemStatus: { scheduler: "active" } as SystemConnectionStatus,
+      }));
+      const section = html.slice(html.indexOf("English ↔ German Gap"), html.indexOf("Used only when English"));
+      expect(section.match(/type="radio"/g)).toHaveLength(3);
+      expect(section).toContain("Compact — 80px");
+      expect(section).toContain("Medium — 100px");
+      expect(section).toMatch(/<input[^>]*checked=""[^>]*\/>Wide — 120px/);
+      expect(section.match(/disabled=""/g) ?? []).toHaveLength(languages.length === 2 ? 0 : 3);
+    },
+  );
+});

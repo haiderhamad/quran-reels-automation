@@ -70,11 +70,29 @@ class TestFinalReelLayout(unittest.TestCase):
             config = build_render_config_from_stored_config(stored_config_from_dict(saved)).subtitle_config
             layout = calculate_multilingual_subtitle_group_layout(arabic, [translation, translation], config)
             self.assertEqual(layout.translation_visible_ranges[0][0] - layout.arabic_visible_bottom_y, expected_gap)
-            self.assertEqual(layout.translation_visible_ranges[1][0] - layout.translation_visible_ranges[0][1], 10)
+            self.assertEqual(layout.translation_visible_ranges[1][0] - layout.translation_visible_ranges[0][1], 80)
             self.assertEqual(build_render_config_from_stored_config(saved).subtitle_config.arabic_translation_gap_px,
                              expected_gap)
         with self.assertRaises(SubtitleError):
             SubtitleConfig(arabic_translation_gap_px=121)
+
+    def test_saved_stack_preset_sets_only_the_bilingual_gap(self):
+        from engine.job import build_render_config_from_stored_config
+
+        block = TextBlockBounds(-150, 0, 150, 80, 1)
+        single_ranges = []
+        for old, expected in ((10, 80), (20, 100), (30, 120)):
+            saved = {"arabic_translation_gap_version": 3, "arabic_translation_gap_px": 100,
+                     "translation_stack_gap_px": old}
+            for source in (saved, stored_config_from_dict(saved)):
+                config = build_render_config_from_stored_config(source).subtitle_config
+                bilingual = calculate_multilingual_subtitle_group_layout(block, [block, block], config)
+                (en_top, en_bottom), (de_top, _) = bilingual.translation_visible_ranges
+                self.assertEqual(en_top - bilingual.arabic_visible_bottom_y, 100)
+                self.assertEqual(de_top - en_bottom, expected)
+                single = calculate_multilingual_subtitle_group_layout(block, [block], config)
+                single_ranges.append(single.translation_visible_ranges)
+        self.assertTrue(all(value == single_ranges[0] for value in single_ranges))
 
     def test_natural_line_pixels_are_preserved_and_gaps_scale(self):
         ffmpeg=resolve_ffmpeg_binary()

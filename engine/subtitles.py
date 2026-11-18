@@ -165,7 +165,7 @@ class SubtitleConfig:
     arabic_max_lines: int = 2
     translation_max_lines: int = 2
     arabic_translation_gap_px: int = 80
-    translation_stack_gap_px: int = 10
+    translation_stack_gap_px: int = 80
     arabic_line_spacing: float = 1.15
     translation_line_spacing: float = 1.25
     text_outline: str = OUTLINE_MINIMAL
@@ -197,9 +197,10 @@ class SubtitleConfig:
             raise SubtitleError(f"translation_max_lines must be 1–5, got {self.translation_max_lines}")
         if not (2 <= self.arabic_translation_gap_px <= 120):
             raise SubtitleError(f"arabic_translation_gap_px must be 2–120, got {self.arabic_translation_gap_px}")
-        if self.translation_stack_gap_px not in (10, 20, 30):
+        # Raw render configurations may replay a historical layout at its original gap.
+        if self.translation_stack_gap_px not in (10, 20, 30, 80, 100, 120):
             raise SubtitleError(
-                f"translation_stack_gap_px must be 10, 20, or 30, got {self.translation_stack_gap_px}"
+                f"Unsupported translation_stack_gap_px: {self.translation_stack_gap_px}"
             )
         if not (0.95 <= self.arabic_line_spacing <= 1.60):
             raise SubtitleError(f"arabic_line_spacing must be 0.95–1.60, got {self.arabic_line_spacing}")

@@ -29,7 +29,7 @@ describe("StoredConfigSchema", () => {
     expect(parsed.arabic_max_lines).toBe(2);
     expect(parsed.translation_max_lines).toBe(2);
     expect(parsed.arabic_translation_gap_px).toBe(80);
-    expect(parsed.translation_stack_gap_px).toBe(10);
+    expect(parsed.translation_stack_gap_px).toBe(80);
     expect(parsed.publishing_schedule).toEqual([
       { id: "morning", time: "08:00", enabled: false },
       { id: "evening", time: "20:00", enabled: false },
@@ -158,16 +158,18 @@ describe("StoredConfigSchema", () => {
     expect(() => StoredConfigSchema.parse({ translation_languages: ["de", "en"] })).toThrow();
   });
 
-  it("accepts final stack gaps and migrates legacy values with or without a generic schedule", () => {
-    for (const gap of [10, 20, 30]) {
-      expect(StoredConfigSchema.parse({ translation_stack_gap_px: gap }).translation_stack_gap_px).toBe(gap);
+  it("preserves the selected English to German spacing across stored presets", () => {
+    for (const [saved, current] of [
+      [4, 80], [10, 80], [80, 80],
+      [6, 100], [20, 100], [100, 100],
+      [8, 120], [30, 120], [120, 120],
+    ]) {
+      for (const schedule of [{}, { publishing_schedule: [{ id: "stable", time: "08:00", enabled: true }] }]) {
+        const config = StoredConfigSchema.parse({ translation_stack_gap_px: saved, ...schedule });
+        expect(config.translation_stack_gap_px).toBe(current);
+        expect(StoredConfigSchema.parse(config).translation_stack_gap_px).toBe(current);
+      }
     }
-    expect(StoredConfigSchema.parse({ translation_stack_gap_px: 4 }).translation_stack_gap_px).toBe(10);
-    expect(StoredConfigSchema.parse({ translation_stack_gap_px: 6 }).translation_stack_gap_px).toBe(20);
-    expect(StoredConfigSchema.parse({
-      translation_stack_gap_px: 8,
-      publishing_schedule: [{ id: "stable", time: "08:00", enabled: true }],
-    }).translation_stack_gap_px).toBe(30);
     expect(() => StoredConfigSchema.parse({ translation_stack_gap_px: 12 })).toThrow();
   });
 

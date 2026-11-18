@@ -83,6 +83,7 @@ from engine.storage import (
     StorageError,
     StoredConfig,
     stored_arabic_translation_gap,
+    stored_translation_stack_gap,
     create_b2_client,
     get_recent_content_history,
     get_run_record,
@@ -275,8 +276,10 @@ def build_render_config_from_stored_config(stored_config: Any) -> RenderConfig:
         "schema_version" in stored_config or "arabic_translation_gap_version" in stored_config
     ):
         arabic_gap = stored_arabic_translation_gap(stored_config)
+        stack_gap = stored_translation_stack_gap(stored_config)
     else:
         arabic_gap = _get("arabic_translation_gap_px", 80)
+        stack_gap = _get("translation_stack_gap_px", 80)
 
     sub_cfg = SubtitleConfig(
         subtitle_mode=_get("subtitle_mode", "progressive_phrase_sync"),
@@ -285,7 +288,7 @@ def build_render_config_from_stored_config(stored_config: Any) -> RenderConfig:
         arabic_max_lines=_get("arabic_max_lines", 2),
         translation_max_lines=_get("translation_max_lines", 2),
         arabic_translation_gap_px=arabic_gap,
-        translation_stack_gap_px=_get("translation_stack_gap_px", 10),
+        translation_stack_gap_px=stack_gap,
         arabic_line_spacing=_get("arabic_line_spacing", 1.15),
         translation_line_spacing=_get("translation_line_spacing", 1.25),
         text_outline=_get("text_outline", "minimal"),
