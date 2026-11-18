@@ -19,6 +19,9 @@ ROOT = Path(__file__).resolve().parents[1]
 # Upstream self-host Compose release and its Docker Hub multi-architecture index.
 IMAGE = "supabase/postgres:17.6.1.136@sha256:f371b5f3f2ac0a05703f33d6e6134515fb2498cab708fb948a0aeb7481467c00"
 ROLES = ("anon", "authenticated", "service_role")
+# The pinned entrypoint uses 5432 for initdb's temporary socket. Only the
+# final server uses this port, still with TCP disabled.
+FINAL_SOCKET_PORT = "5433"
 
 
 def docker(*args, **kwargs):
@@ -34,28 +37,24 @@ def docker(*args, **kwargs):
 def sql(container, statement, *, role="postgres"):
     command = ["exec", "-i", "--user", "postgres", container, "psql", "-XqAt",
                "-v", "ON_ERROR_STOP=1", "-h", "/var/run/postgresql", "-U", role,
-               "-d", "postgres", "--single-transaction", "-f", "-"]
+               "-p", FINAL_SOCKET_PORT, "-d", "postgres", "--single-transaction", "-f", "-"]
     return docker(*command, input=statement, stdout=subprocess.PIPE).stdout.strip()
 
 
 def await_database(container):
-    # The upstream entrypoint uses a temporary server while applying the image's
-    # own role and extension migrations. Wait for the final postgres process.
     until = time.monotonic() + 180
     while time.monotonic() < until:
         status = docker("inspect", "--format", "{{.State.Status}}", container,
                         stdout=subprocess.PIPE).stdout.strip()
         if status != "running":
             raise RuntimeError(f"Supabase database container entered state {status}.")
-        process = docker("exec", container, "cat", "/proc/1/comm", stdout=subprocess.PIPE).stdout.strip()
-        if process == "postgres":
-            try:
-                if sql(container, "select current_user;") == "postgres":
-                    return
-            except subprocess.CalledProcessError:
-                pass
+        try:
+            if sql(container, "select current_user;") == "postgres":
+                return
+        except subprocess.CalledProcessError:
+            pass
         time.sleep(1)
-    raise RuntimeError("Timed out waiting for Supabase database initialization.")
+    raise RuntimeError(f"Timed out waiting for the final Supabase socket on port {FINAL_SOCKET_PORT}.")
 
 
 def verify(container):
@@ -134,7 +133,7 @@ def main():
     # command-line argument. The container has no published ports or host mounts.
     environment = {**os.environ, "POSTGRES_PASSWORD": secrets.token_hex(32)}
     container = docker("create", "--network", "none", "--no-healthcheck", "--env", "POSTGRES_PASSWORD",
-                       IMAGE, "postgres", "-c", "config_file=/etc/postgresql/postgresql.conf",
+                       IMAGE, "postgres", "-p", FINAL_SOCKET_PORT, "-c", "config_file=/etc/postgresql/postgresql.conf",
                        "-c", "listen_addresses=", "-c", "cron.launch_active_jobs=off",
                        env=environment, stdout=subprocess.PIPE).stdout.strip()
     try:
