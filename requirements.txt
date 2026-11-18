@@ -1,0 +1,7 @@
+requests==2.31.0
+Pillow==11.2.1
+numpy
+opencv-python-headless
+boto3==1.43.78
+botocore==1.43.78
+cryptography>=46.0.0,<47

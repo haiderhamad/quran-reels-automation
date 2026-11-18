@@ -1,0 +1,18 @@
+%% Python execution roles: only GitHub Actions produces/publishes Reels. Mac screens backgrounds.
+flowchart TB
+    providers[Pexels and Pixabay] --> mac_discovery[Mac: search / nominate nature videos]
+    providers --> gh_discovery[GitHub Actions: prescan once daily]
+    mac_discovery --> mac_cv[Mac: intensive full-source CV inspection]
+    gh_discovery --> gh_cv[GitHub Actions: pinned full-source CV twice daily]
+    mac_cv -->|no people, faces or supported animals| pool[(Supabase verified video pool)]
+    gh_cv -->|no people, faces or supported animals| pool
+    mac_cv -->|unsafe / ambiguous| reject[Exclude candidate]
+    gh_cv -->|unsafe / ambiguous| reject
+    schedule[Publishing schedule + atomic claims] --> gh_reel[GitHub Actions: production Reel worker]
+    pool -->|verified source hash| gh_reel
+    quran[Verified Quran text, translations, recitation / timing] --> gh_reel
+    gh_reel --> final[Subtitles + FFmpeg + mandatory final CV scan]
+    final --> storage[(B2 MP4 + Supabase RunRecord)]
+    storage --> buffer[Buffer API publishes to connected accounts]
+    buffer --> facebook[Facebook]
+    buffer --> instagram[Instagram]

@@ -1,0 +1,39 @@
+%% Division of responsibilities: Mac background-only; GitHub background + Reel production.
+flowchart LR
+    admin[Admin browser] --> dashboard[Next.js Dashboard on Vercel]
+    dashboard --> state[(Supabase: candidate queue + verified pool + run ledger)]
+
+    subgraph local["Local Mac: background screening ONLY"]
+        macsearch[Pexels + Pixabay discovery]
+        maccv[Intensive full-video CV: people, faces, animal classes]
+        macsearch --> maccv
+    end
+
+    subgraph github["GitHub Actions: scheduled Python workers"]
+        discovery[Metadata-only prescan: once daily]
+        cv[Full-source CV qualification: twice daily]
+        reel[Production Reel worker: Quran text + audio + subtitles]
+        render[FFmpeg final render + final CV scan]
+        discovery --> cv
+        reel --> render
+    end
+
+    providers[Pexels / Pixabay] --> macsearch
+    providers --> discovery
+    maccv -->|safe candidates only| state
+    cv -->|safe candidates only| state
+    state -->|verified footage / matching source hash| reel
+    quran[Quran Foundation + QuranEnc + MP3Quran] --> reel
+    render --> b2[(B2 final Reel)]
+    b2 --> audit[(Supabase RunRecord + publication state)]
+    audit --> buffer[Buffer API / Buffer website]
+    buffer --> fb[Facebook]
+    buffer --> ig[Instagram]
+    b2 -. archived monthly .-> drive[Google Drive]
+
+    classDef localBg fill:#17263b,stroke:#84b9f5,color:#edf5fa;
+    classDef ghBg fill:#17263b,stroke:#67dbc3,color:#edf5fa;
+    classDef storage fill:#17263b,stroke:#efc78b,color:#edf5fa;
+    class macsearch,maccv localBg;
+    class discovery,cv,reel,render ghBg;
+    class state,b2,audit storage;

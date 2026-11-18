@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "policy_version": "calm-inviting-v1",
+  "content_profile": "calm_inviting",
+  "review_method": "The installation owner supplies the results of their own whole-ayah and surrounding-context review.",
+  "ranges": [],
+  "context_requirements": []
+}

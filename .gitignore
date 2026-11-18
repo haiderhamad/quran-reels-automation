@@ -1,0 +1,83 @@
+# Workspace-only agent profiles, bridge journals and private research evidence
+/.codex/
+/.ai-bridge/
+/.agents/
+/.local/
+/docs/history/
+/reports/*.md
+/Logo/
+
+# Local secrets
+.env*
+!.env.example
+
+# Build artifacts
+build/
+dist/
+*.spec.bak
+
+# Refactor backups (kept locally for safety, do not ship)
+main_original.py
+main.py.bak
+*.py.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp & cache directories
+.cache/
+.tmp/
+temp_workspaces/
+outputs/
+cache_mp3quran/
+cache_qurancom/
+cache_timings/
+my_temp/
+temp_videos/
+temp_audio/
+local_bgs/
+vision/
+dist-userdata-test/
+temp_mix_*.mp4
+
+# Backup files
+*.bak
+
+# Local dev / upstream reference directories (not needed in HF Space)
+upstream-src/
+spaces--Ali112008--Quran-Reels-Generator2/
+
+# Node / Next.js / Vercel
+node_modules/
+.next/
+.vercel/
+*.tsbuildinfo
+/.local/
+supabase/.temp/
+
+# Installation-owned source material and review manifests
+/alignments/
+/reference-sources/
+/private-sources/

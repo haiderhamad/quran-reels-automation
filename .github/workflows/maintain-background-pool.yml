@@ -1,0 +1,97 @@
+name: Maintain Verified Background Pool
+
+on:
+  workflow_dispatch:
+    inputs:
+      minimum_safe:
+        description: "Pool floor that triggers maintenance"
+        required: true
+        default: "100"
+        type: string
+      target_safe:
+        description: "Healthy pool target"
+        required: true
+        default: "150"
+        type: string
+      max_new_safe:
+        description: "Maximum new safe clips this run"
+        required: true
+        default: "1"
+        type: string
+      time_budget_seconds:
+        description: "Bounded maintenance runtime"
+        required: true
+        default: "600"
+        type: string
+      max_candidates:
+        description: "Maximum candidates processed"
+        required: true
+        default: "40"
+        type: string
+      providers:
+        description: "Discovery providers"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - pexels
+          - pixabay
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verified-background-pool-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    if: ${{ github.event.repository.private && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && vars.QURAN_REELS_PRODUCTION_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r requirements.txt
+      - name: Fetch pinned safety models
+        run: python3 scripts/fetch_cv_models.py
+      - name: Maintain pool within explicit bounds
+        env:
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+          B2_REGION: ${{ secrets.B2_REGION }}
+          B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+          B2_PREFIX: ${{ secrets.B2_PREFIX || 'quran-reels/' }}
+          STATE_AUTHORITY: ${{ secrets.STATE_AUTHORITY || 'supabase' }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PYTHONUNBUFFERED: "1"
+          WORKFLOW_MINIMUM_SAFE: ${{ inputs.minimum_safe }}
+          WORKFLOW_TARGET_SAFE: ${{ inputs.target_safe }}
+          WORKFLOW_MAX_NEW_SAFE: ${{ inputs.max_new_safe }}
+          WORKFLOW_TIME_BUDGET_SECONDS: ${{ inputs.time_budget_seconds }}
+          WORKFLOW_MAX_CANDIDATES: ${{ inputs.max_candidates }}
+          WORKFLOW_PROVIDERS: ${{ inputs.providers }}
+        run: |
+          python3 -u scripts/maintain_verified_background_pool.py \
+            --minimum-safe "$WORKFLOW_MINIMUM_SAFE" \
+            --target-safe "$WORKFLOW_TARGET_SAFE" \
+            --max-new-safe "$WORKFLOW_MAX_NEW_SAFE" \
+            --time-budget-seconds "$WORKFLOW_TIME_BUDGET_SECONDS" \
+            --max-candidates "$WORKFLOW_MAX_CANDIDATES" \
+            --provider "$WORKFLOW_PROVIDERS"
+
+# Intentionally no schedule/cron. Activation requires separate user approval.

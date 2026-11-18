@@ -1,0 +1,66 @@
+name: Quran Publishing Scheduler
+
+# An installation-owned, opt-in Supabase pg_cron can invoke the authenticated Vercel
+# scheduler endpoint, which dispatches generate-reel.yml at Admin-chosen times.
+# Do not add another scheduled GitHub heartbeat (duplicate scheduler risk).
+# This workflow remains available for explicit manual recovery only.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quran-reels-scheduler
+  cancel-in-progress: false
+
+jobs:
+  check-schedule:
+    # Public-source default: no production credentials or dispatch until owner cutover.
+    if: ${{ github.event.repository.private && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && vars.QURAN_REELS_PRODUCTION_ENABLED == 'true' }}
+    name: Check Publishing Schedule
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      due: ${{ steps.check.outputs.due }}
+      slot_id: ${{ steps.check.outputs.slot_id }}
+      run_id: ${{ steps.check.outputs.run_id }}
+      publish_facebook: ${{ steps.check.outputs.publish_facebook }}
+      publish_instagram: ${{ steps.check.outputs.publish_instagram }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install minimal dependencies
+        run: |
+          python3 -m pip install requests
+
+      - name: Check due slot and acquire atomic claim
+        id: check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STATE_AUTHORITY: ${{ secrets.STATE_AUTHORITY || 'supabase' }}
+        run: |
+          python3 scripts/run_publishing_scheduler.py --check-only
+
+  generate-scheduled-reel:
+    name: Generate Scheduled Quran Reel
+    needs: check-schedule
+    if: needs.check-schedule.outputs.due == 'true'
+    uses: ./.github/workflows/generate-reel.yml
+    with:
+      run_kind: "scheduled"
+      schedule_slot_id: ${{ needs.check-schedule.outputs.slot_id }}
+      run_id: ${{ needs.check-schedule.outputs.run_id }}
+      publish_facebook: ${{ needs.check-schedule.outputs.publish_facebook == 'true' }}
+      publish_instagram: ${{ needs.check-schedule.outputs.publish_instagram == 'true' }}
+    secrets: inherit
