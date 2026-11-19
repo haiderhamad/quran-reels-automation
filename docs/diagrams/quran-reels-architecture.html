@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How a Reel reaches publication · Quran Reels Automation</title>
+<style>
+:root{color-scheme:dark;font:100%/1.55 system-ui,sans-serif;color:#eef4f3;background:#0d191f}*{box-sizing:border-box}body{margin:0}main{max-width:34rem;margin:auto;padding:1rem}h1{font-size:1.2rem;margin:0 0 .8rem}figure{margin:0}svg{width:100%;height:auto;display:block;border:1px solid #314750;border-radius:10px}aside{border-top:1px solid #385158;margin-top:1.3rem;padding-top:1rem}h2{font-size:1.15rem;margin:0}p{color:#d1dddf;margin:.35rem 0}
+</style>
+</head>
+<body><main>
+<h1>Quran Reels Automation</h1>
+<figure>
+<svg xmlns="http://www.w3.org/2000/svg" width="464" height="723" viewBox="0 0 464 723" role="img" aria-labelledby="diagram-title diagram-description">
+  <title id="diagram-title">How a Reel reaches publication</title>
+  <desc id="diagram-description">A request starts GitHub Actions. The worker verifies the approved verse, subtitles and recitation, selects screened footage, renders and checks the video, then saves a private MP4. A test ends there. When publishing is enabled, Buffer receives the video. Facebook and Instagram outcomes are recorded separately. Only confirmed Facebook publication advances the catalog.</desc>
+  <defs>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#20313b" stroke-width=".65"/></pattern>
+    <marker id="arrow" viewBox="0 0 8 8" markerWidth="5" markerHeight="5" refX="6" refY="4" orient="auto"><path d="M1 1l5 3-5 3" fill="none" stroke="#b4c6c9" stroke-width="1.5"/></marker>
+    <style>text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#f2f6f5}.headline{font-size:26px;font-weight:bold}.label{font-size:21px;font-weight:bold}.detail{font-size:15.5px;fill:#d1dddf}.index{font:600 15px ui-monospace,Menlo,monospace;fill:#b3cccf;text-anchor:middle}</style>
+  </defs>
+  <rect width="464" height="723" fill="#0d191f"/>
+  <rect width="464" height="723" fill="url(#grid)"/>
+  <text x="18" y="39" class="headline">How a Reel reaches publication</text>
+  <path d="M232 146V165" fill="none" stroke="#b4c6c9" stroke-width="1.7" marker-end="url(#arrow)"/>
+  <path d="M232 256V275" fill="none" stroke="#b4c6c9" stroke-width="1.7" marker-end="url(#arrow)"/>
+  <path d="M232 366V385" fill="none" stroke="#b4c6c9" stroke-width="1.7" marker-end="url(#arrow)"/>
+  <path d="M232 476V495" fill="none" stroke="#b4c6c9" stroke-width="1.7" stroke-dasharray="3 3" marker-end="url(#arrow)"/>
+  <path d="M232 586V605" fill="none" stroke="#b4c6c9" stroke-width="1.7" marker-end="url(#arrow)"/>
+  <g id="trigger">
+    <rect x="18" y="59" width="428" height="86" rx="9" fill="#13252b"/>
+    <rect x="18" y="59" width="428" height="86" rx="9" fill="none" stroke="#73bcd5"/>
+    <circle cx="40" cy="83" r="12" fill="#23363b"/>
+    <text class="index" x="40" y="88">1</text>
+    <text class="label" x="61" y="90">Start a run</text>
+    <text class="detail" x="33" y="114">A dashboard request or due schedule starts</text>
+    <text class="detail" x="33" y="134">the GitHub Actions worker.</text>
+  </g>
+  <g id="inputs">
+    <rect x="18" y="169" width="428" height="86" rx="9" fill="#13252b"/>
+    <rect x="18" y="169" width="428" height="86" rx="9" fill="none" stroke="#73cfb1"/>
+    <circle cx="40" cy="193" r="12" fill="#23363b"/>
+    <text class="index" x="40" y="198">2</text>
+    <text class="label" x="61" y="200">Verify the inputs</text>
+    <text class="detail" x="33" y="224">Check approved verse, subtitles and recitation.</text>
+    <text class="detail" x="33" y="244">Choose a previously screened background.</text>
+  </g>
+  <g id="render">
+    <rect x="18" y="279" width="428" height="86" rx="9" fill="#13252b"/>
+    <rect x="18" y="279" width="428" height="86" rx="9" fill="none" stroke="#73cfb1"/>
+    <circle cx="40" cy="303" r="12" fill="#23363b"/>
+    <text class="index" x="40" y="308">3</text>
+    <text class="label" x="61" y="310">Render and check the Reel</text>
+    <text class="detail" x="33" y="334">FFmpeg builds the vertical video. The final</text>
+    <text class="detail" x="33" y="354">composite must pass the vision scan.</text>
+  </g>
+  <g id="store">
+    <rect x="18" y="389" width="428" height="86" rx="9" fill="#13252b"/>
+    <rect x="18" y="389" width="428" height="86" rx="9" fill="none" stroke="#f0c078"/>
+    <circle cx="40" cy="413" r="12" fill="#23363b"/>
+    <text class="index" x="40" y="418">4</text>
+    <text class="label" x="61" y="420">Save the private MP4</text>
+    <text class="detail" x="33" y="444">Backblaze B2 stores the video.</text>
+    <text class="detail" x="33" y="464">A private test run ends here.</text>
+  </g>
+  <g id="buffer">
+    <rect x="18" y="499" width="428" height="86" rx="9" fill="#13252b"/>
+    <rect x="18" y="499" width="428" height="86" rx="9" fill="none" stroke="#f0c078"/>
+    <circle cx="40" cy="523" r="12" fill="#23363b"/>
+    <text class="index" x="40" y="528">5</text>
+    <text class="label" x="61" y="530">Send to Buffer</text>
+    <text class="detail" x="33" y="554">Publishing must be enabled. Buffer receives</text>
+    <text class="detail" x="33" y="574">the video for each connected channel.</text>
+  </g>
+  <g id="receipts">
+    <rect x="18" y="609" width="428" height="86" rx="9" fill="#13252b"/>
+    <rect x="18" y="609" width="428" height="86" rx="9" fill="none" stroke="#bea8ee"/>
+    <circle cx="40" cy="633" r="12" fill="#23363b"/>
+    <text class="index" x="40" y="638">6</text>
+    <text class="label" x="61" y="640">Confirm publication</text>
+    <text class="detail" x="33" y="664">Supabase tracks Facebook and Instagram separately.</text>
+    <text class="detail" x="33" y="684">Only a confirmed Facebook post advances the catalog.</text>
+  </g>
+</svg>
+</figure>
+<aside aria-labelledby="footage-note"><h2 id="footage-note">Where do screened backgrounds come from?</h2>
+<p>Before a Reel run, a local Mac or GitHub Actions can nominate Pexels and Pixabay clips. Full-source vision checks screen for people, faces and supported animal classes. Supabase records each verified clip’s identity and hash for the worker.</p></aside>
+<aside aria-labelledby="source-note"><h2 id="source-note">Which Quran sources does the worker check?</h2>
+<p>Arabic comes from Quran Foundation, Rowwad translations from QuranEnc, and recitation and timing from MP3Quran. The worker checks text fit and uses reviewed phrase alignment when needed.</p></aside>
+</main></body></html>

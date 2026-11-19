@@ -1,5 +1,7 @@
 # Architecture
 
+[View the system diagram](docs/diagrams/quran-reels-architecture.svg) or open the [offline diagram and text walkthrough](docs/diagrams/quran-reels-architecture.html) in a browser.
+
 The dashboard is a server-side Next.js application. It authenticates administrators, stores application settings in Supabase, displays run and delivery records, and can dispatch approved workflows to the operator's private GitHub repository.
 
 Local Python workers discover Pexels and Pixabay video candidates and inspect the complete source for people, faces and supported animal classes. GitHub Actions can perform the same qualification. Credentials and the resulting evidence stay in the operator's installation.
