@@ -1,10 +1,10 @@
 # Self-hosting Quran Reels
 
-Use the public repository for development and secret-free CI. For provider access create a private GitHub installation, review its default branch, protect workflow changes and use installation-owned credentials. Credentialed jobs require private repository visibility, the default branch, and their respective opt-in. Secrets from one installation never transfer to another.
+Your first goal is one private MP4 that you can watch in your B2 bucket. Start with your own private repository and accounts. Keep publishing off until you have reviewed the video.
 
 ## Create the private installation
 
-1. Create an independent private repository under your own GitHub account or organization. You can use GitHub's **Import repository** with the public source URL and choose **Private** for the destination. Check that its default branch contains `.github/workflows/generate-reel.yml` and that Actions is enabled.
+1. Create an independent private repository under your own GitHub account or organization. You can use GitHub's **Import repository** with the public source URL and choose **Private** for the destination. Protect changes to workflows on your default branch. Check that the branch contains `.github/workflows/generate-reel.yml` and that Actions is enabled.
 2. Put dashboard values on the server running Next.js. During local development use `apps/dashboard/.env.local`. For dashboard dispatch, set `GITHUB_OWNER` and `GITHUB_REPO` to the owner and repository name separately, `GITHUB_WORKFLOW_REF` to the private default branch, and `GITHUB_WORKFLOW_ID=generate-reel.yml`. Use a repository-scoped token with Actions write access for `GITHUB_ACTIONS_TOKEN`.
 3. Configure hosted workers separately under **Settings → Secrets and variables → Actions** in that private repository. The [Generate Reel workflow](../.github/workflows/generate-reel.yml) shows the exact mappings: `secrets.*` are repository secrets and `vars.*` are repository variables. A GitHub runner starts with a fresh checkout and cannot read your local `.env.local`.
 
@@ -23,6 +23,29 @@ Start with the [admin login and database setup](../DEPLOYMENT.md). Add the accou
 | MP3Quran | Verify permission for the intended recitation, reuse and platforms before setting `RECITER_REUSE_CONFIRMED`. The timing and audio checks still apply. |
 
 The Buffer caption credits Quran Foundation and names Rowwad Translation Center, QuranEnc.com and the validated translation edition(s) carried by the run. The worker's test mode may upload to B2. Keep release and delivery switches off during setup. For offline development use the tests in the [README](../README.md).
+
+## Build a background pool
+
+**On GitHub Actions**, use your private default branch. Set the repository variable `QURAN_REELS_BACKGROUND_ENABLED=true` after configuring Pexels, Pixabay and Supabase. **Discover Background Candidates** records provider metadata. **Qualify Background Candidates** downloads candidates, screens the full video and records the result. You can run these workflows manually or let their included schedules fill the pool. Setting `BACKGROUND_DISCOVERY_ENABLED=false` or `BACKGROUND_QUALIFICATION_ENABLED=false` pauses the corresponding job.
+
+**On a Mac**, use the Python environment and pinned models from the [developer checks](../README.md#run-the-developer-checks). Set `STATE_AUTHORITY=supabase`, your Supabase URL and service-role key, and both provider keys in the local environment. From the repository root run:
+
+```sh
+python -m scripts.local_background_session --duration-minutes 30 --max-jobs 3
+```
+
+This session can write nominations and screening results to the same Supabase queue used by Actions. The limit is three qualification jobs. Rejected candidates do not become available for rendering. Check the pool for at least one eligible background before trying the Reel worker.
+
+## From the first MP4 to Buffer
+
+In the private repository, open **Settings → Secrets and variables → Actions**. Put worker credentials under **Secrets** and the workflow switches under **Variables**. The switches are repository-wide. In **Actions → Run workflow**, choose the private default branch for each run.
+
+1. **Configure the private installation.** Initialize Supabase and save the first dashboard settings with automation off. Provide B2 media storage, Quran Foundation credentials for the relevant environment, access to the pinned Rowwad archives or your configured English reference, and any additional reviewed material needed for your selected verses. Set the repository variable `QURAN_REELS_PRODUCTION_ENABLED=true` to allow the hosted worker to start on the default branch. Leave the Buffer flags and `QURAN_REELS_V1_PUBLISH_ENABLED` off for the test.
+2. **Render one private Reel.** In **Actions → Generate Reel → Run workflow**, select the default branch and `run_kind=test`. Leave the schedule slot and optional verse key blank for automatic test selection. Test runs use the prelive Quran Foundation credentials. On success, open the MP4 identified by the run's B2 media key and review Arabic, translation, footnotes when present, background and audio timing. The result reports `NOT_ATTEMPTED` for both social channels.
+3. **Inspect the next production selection.** With `QURAN_REELS_V1_MODE=preview`, choose `run_kind=manual_production` and leave the schedule slot blank. A successful selection check reports `SKIPPED` with the ayah and confirmed count. This mode stops before rendering. A job skipped before its first step instead means the private-repository, default-branch or workflow gate was unmet.
+4. **Check the Buffer connection.** Configure the worker secret `BUFFER_API_KEY` and repository variables `BUFFER_ORGANIZATION_ID`, `BUFFER_FACEBOOK_CHANNEL_ID`, `BUFFER_INSTAGRAM_CHANNEL_ID` and `PUBLIC_MEDIA_DELIVERY_ORIGIN`. Run **Buffer Readiness Check**. Verify the intended Facebook Page and Instagram account both report `CONNECTED`. Set `PUBLIC_MEDIA_DELIVERY_ORIGIN` to the public HTTPS origin of your dashboard (for example, `https://reels.example.org`). The worker adds the media path. The dashboard needs its Supabase and B2 credentials to serve the MP4 to Buffer.
+5. **Publish once when ready.** Save both platform selections and confirmed recitation reuse in the dashboard. Set `RECITER_REUSE_CONFIRMED=true` only after obtaining permission. Under **Settings → Secrets and variables → Actions → Variables**, set `PUBLISHER_BACKEND=buffer` and `QURAN_REELS_V1_MODE=publish`. Set `QURAN_REELS_V1_PUBLISH_ENABLED`, `BUFFER_PUBLISHING_ENABLED`, `BUFFER_FACEBOOK_ENABLED` and `BUFFER_INSTAGRAM_ENABLED` to `true`. In **Actions → Generate Reel → Run workflow**, choose `manual_production`, select both platform targets and leave `force` off. This requests a real post on both channels.
+6. **Verify delivery before enabling a schedule.** Inspect each channel's run record and Buffer outcome. A confirmed Facebook receipt advances the catalog. If a result is `UNKNOWN_OUTCOME`, reconcile the existing send with Buffer and the destination before retrying. After verifying the manual flow, configure a single heartbeat using the [scheduler guide](../DEPLOYMENT.md#scheduler).
 
 ## English Rowwad 1.0.19
 
@@ -96,26 +119,3 @@ WHERE first_ayah_key = $1 AND last_ayah_key = $2
 ```
 
 The production worker separately binds that approval identity to its claim, rendered passage and receipt. Adding a row alone cannot change the 2,211-member catalog or advance a delivery counter.
-
-## Build a background pool
-
-**On GitHub Actions**, use your private default branch. Set the repository variable `QURAN_REELS_BACKGROUND_ENABLED=true` after configuring Pexels, Pixabay and Supabase. **Discover Background Candidates** records provider metadata. **Qualify Background Candidates** downloads candidates, screens the full video and records the result. You can run these workflows manually or let their included schedules fill the pool. Setting `BACKGROUND_DISCOVERY_ENABLED=false` or `BACKGROUND_QUALIFICATION_ENABLED=false` pauses the corresponding job.
-
-**On a Mac**, use the Python environment and pinned models from the [developer checks](../README.md#run-the-developer-checks). Set `STATE_AUTHORITY=supabase`, your Supabase URL and service-role key, and both provider keys in the local environment. From the repository root run:
-
-```sh
-python -m scripts.local_background_session --duration-minutes 30 --max-jobs 3
-```
-
-This session can write nominations and screening results to the same Supabase queue used by Actions. The limit is three qualification jobs. Rejected candidates do not become available for rendering. Check the pool for at least one eligible background before trying the Reel worker.
-
-## From the first MP4 to Buffer
-
-In the private repository, open **Settings → Secrets and variables → Actions**. Put worker credentials under **Secrets** and the workflow switches under **Variables**. The switches are repository-wide. In **Actions → Run workflow**, choose the private default branch for each run.
-
-1. **Configure the private installation.** Initialize Supabase and save the first dashboard settings with automation off. Provide B2 media storage, Quran Foundation credentials for the relevant environment, access to the pinned Rowwad archives or your configured English reference, and any additional reviewed material needed for your selected verses. Set the repository variable `QURAN_REELS_PRODUCTION_ENABLED=true` to allow the hosted worker to start on the default branch. Leave the Buffer flags and `QURAN_REELS_V1_PUBLISH_ENABLED` off for the test.
-2. **Render one private Reel.** In **Actions → Generate Reel → Run workflow**, select the default branch and `run_kind=test`. Leave the schedule slot and optional verse key blank for automatic test selection. Test runs use the prelive Quran Foundation credentials. On success, open the MP4 identified by the run's B2 media key and review Arabic, translation, footnotes when present, background and audio timing. The result reports `NOT_ATTEMPTED` for both social channels.
-3. **Inspect the next production selection.** With `QURAN_REELS_V1_MODE=preview`, choose `run_kind=manual_production` and leave the schedule slot blank. A successful selection check reports `SKIPPED` with the ayah and confirmed count. This mode stops before rendering. A job skipped before its first step instead means the private-repository, default-branch or workflow gate was unmet.
-4. **Check the Buffer connection.** Configure the worker secret `BUFFER_API_KEY` and repository variables `BUFFER_ORGANIZATION_ID`, `BUFFER_FACEBOOK_CHANNEL_ID`, `BUFFER_INSTAGRAM_CHANNEL_ID` and `PUBLIC_MEDIA_DELIVERY_ORIGIN`. Run **Buffer Readiness Check**. Verify the intended Facebook Page and Instagram account both report `CONNECTED`. Set `PUBLIC_MEDIA_DELIVERY_ORIGIN` to the public HTTPS origin of your dashboard (for example, `https://reels.example.org`). The worker adds the media path. The dashboard needs its Supabase and B2 credentials to serve the MP4 to Buffer.
-5. **Publish once when ready.** Save both platform selections and confirmed recitation reuse in the dashboard. Set `RECITER_REUSE_CONFIRMED=true` only after obtaining permission. Under **Settings → Secrets and variables → Actions → Variables**, set `PUBLISHER_BACKEND=buffer` and `QURAN_REELS_V1_MODE=publish`. Set `QURAN_REELS_V1_PUBLISH_ENABLED`, `BUFFER_PUBLISHING_ENABLED`, `BUFFER_FACEBOOK_ENABLED` and `BUFFER_INSTAGRAM_ENABLED` to `true`. In **Actions → Generate Reel → Run workflow**, choose `manual_production`, select both platform targets and leave `force` off. This requests a real post on both channels.
-6. **Verify delivery before enabling a schedule.** Inspect each channel's run record and Buffer outcome. A confirmed Facebook receipt advances the catalog. If a result is `UNKNOWN_OUTCOME`, reconcile the existing send with Buffer and the destination before retrying. After verifying the manual flow, configure a single heartbeat using the [scheduler guide](../DEPLOYMENT.md#scheduler).
