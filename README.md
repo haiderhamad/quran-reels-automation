@@ -1,6 +1,6 @@
 # Quran Reels Automation
 
-Create a vertical Quran recitation video with Arabic text, a Rowwad translation and screened nature footage. Run your own Next.js dashboard to review settings and run history. A Python worker renders a 1080 × 1920 MP4 with FFmpeg and can send it to your Facebook and Instagram channels through Buffer.
+Create a vertical Quran recitation video with Arabic text, English and German Rowwad subtitles, and screened nature footage. Run your own Next.js dashboard to review settings and run history. A Python worker renders a 1080 × 1920 MP4 with FFmpeg and can send it to your Facebook and Instagram channels through Buffer.
 
 ## Try the subtitle preview
 
@@ -44,17 +44,21 @@ Discovery and qualification can run in GitHub Actions or in a local Python sessi
 
 ## Run it with your own accounts
 
-Before provisioning cloud services, confirm that you can obtain the original English Rowwad **1.0.19** reference and the permissions for your intended use. The distribution includes its verifier. Operators supply the source text and any required reviewed panel files. You can run the demo and the developer checks while arranging access.
+Try the reviewed three-panel layout for **Al-Baqarah 2:35** before setting up any accounts. With the [developer prerequisites](#run-the-developer-checks) installed, run the following from the repository root. It checks the public Arabic text, the pinned Rowwad editions and the read-92 timing in a fresh local cache. The check runs locally without credentials, uploads or posting.
+
+```sh
+python -m scripts.verify_public_bilingual_235
+```
 
 | What you want to do | Where to start |
 | --- | --- |
 | Set up the dashboard and database | [Create a private installation](docs/PUBLIC_SETUP.md#create-the-private-installation), initialize your own [database](DEPLOYMENT.md#fresh-database), then save the dashboard settings with automation off. |
-| Verify the Quran sources | Configure Quran Foundation, the original English Rowwad **1.0.19** reference and permission to reuse the recitation. Supply reviewed panel manifests for verses that need them. [Source setup](docs/PUBLIC_SETUP.md#english-rowwad-1019) |
+| Verify the Quran sources | The Worker retrieves English Rowwad **1.0.19** and German Rowwad **1.0.15** from QuranEnc. For production, configure Quran Foundation and confirm recitation reuse rights. The 2:35 panel boundaries ship with the code. [Source setup](docs/PUBLIC_SETUP.md#english-rowwad-1019) |
 | Find background videos | Run **Discover Background Candidates** and **Qualify Background Candidates** on GitHub, or use the local Python command. [Background setup](docs/PUBLIC_SETUP.md#build-a-background-pool) |
 | Make the first private MP4 | On the private default branch, run **Generate Reel** with `run_kind=test`. Review the stored MP4 before enabling delivery. [First Reel walkthrough](docs/PUBLIC_SETUP.md#from-the-first-mp4-to-buffer) |
 | Publish through Buffer | Check both connected channels, enable delivery in your installation and inspect each channel's result. Only confirmed Facebook publication advances the fixed catalog of 2,211 ayahs. [Publishing walkthrough](docs/PUBLIC_SETUP.md#from-the-first-mp4-to-buffer) |
 
-Each installation supplies its own credentials, reviewed material and delivery history. Public CI exercises the software with distributable fixtures. A hosted database acceptance workflow is also available for a disposable Supabase instance. [Database checks](DEPLOYMENT.md#fresh-database)
+Each installation uses its own provider accounts, additional editorial reviews and delivery history. Public CI exercises the software with distributable fixtures. A hosted database acceptance workflow is also available for a disposable Supabase instance. [Database checks](DEPLOYMENT.md#fresh-database)
 
 ## Run the developer checks
 

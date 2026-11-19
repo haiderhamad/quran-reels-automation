@@ -24,10 +24,15 @@ from engine.arabic_layout import ArabicLayoutError, measure_arabic_geometry
 
 from engine.alignments import (
     AlignmentValidationError,
+    DEFAULT_ALIGNMENT_ROOT, PACKAGED_ALIGNMENT_ROOT, resolve_alignment_root,
     SUBTITLE_MODE_FULL_AYAH_FALLBACK,
     SUBTITLE_MODE_VERIFIED_PHRASE_PROGRESSIVE,
     load_validated_alignment,
     normalized_sha256,
+)
+
+from engine.bilingual_alignments import (
+    DEFAULT_BILINGUAL_ALIGNMENT_ROOT, PACKAGED_BILINGUAL_ALIGNMENT_ROOT, load_bilingual_alignment,
 )
 
 from engine.subtitles import (
@@ -694,24 +699,66 @@ def paginate_footnote_text(
     return panels
 
 
+def _resolve_bilingual_ayah(
+    ayah: RenderAyah, *, root: Path, english_root: Path, preview: bool,
+) -> RenderAyah:
+    english, german = ayah.ordered_translations
+    alignment = load_bilingual_alignment(
+        f"{ayah.surah_number}:{ayah.ayah_number}", ayah.arabic_text, english, german,
+        root=root, english_root=english_root, preview=preview,
+    )
+    if alignment is None:
+        if preview:
+            raise RenderError("Bilingual preview candidate is missing.")
+        return ayah
+    mode = (SUBTITLE_MODE_UNVERIFIED_ALIGNMENT_PREVIEW if preview
+            else SUBTITLE_MODE_VERIFIED_PHRASE_PROGRESSIVE)
+    segments = tuple(
+        (panel.arabic_text, (("en", panel.english_text), ("de", german_text)))
+        for panel, german_text in zip(alignment.english.panels, alignment.german_panels)
+    )
+    return replace(ayah, subtitle_mode=mode, subtitle_segments=segments,
+                   subtitle_provenance={**alignment.provenance, "subtitle_mode": mode})
+
+
+def resolve_bilingual_alignment_preview(
+    ayah: RenderAyah, config: RenderConfig, *, candidate_root: Path, english_root: Optional[Path] = None,
+) -> RenderAyah:
+    """Resolve a source-validated proposal only for an explicit offline preview."""
+    if config.allow_unverified_alignment_preview is not True:
+        raise RenderError("UNVERIFIED_ALIGNMENT_PREVIEW_FORBIDDEN")
+    if ayah.subtitle_mode is not None or tuple(t.language for t in ayah.ordered_translations) != ("en", "de"):
+        raise RenderError("Bilingual preview requires an unresolved English/German ayah.")
+    if english_root is None:
+        verse = f"{ayah.surah_number}:{ayah.ayah_number}"
+        english_root = resolve_alignment_root(verse, DEFAULT_ALIGNMENT_ROOT, PACKAGED_ALIGNMENT_ROOT)
+    return _resolve_bilingual_ayah(ayah, root=candidate_root, english_root=english_root, preview=True)
+
+
 def resolve_render_ayah_subtitle_plan(
     ayah: RenderAyah,
     config: RenderConfig,
     *,
     alignment_root: Optional[Path] = None,
+    bilingual_alignment_root: Optional[Path] = None,
 ) -> RenderAyah:
-    """Resolve English production semantics once, before layout or media work.
-
-    Reviewed source-bound data is the only authority allowed to create English
-    phrase progression.  Every other English ayah becomes one complete source
-    panel.  German paths are intentionally left unchanged by this English-only
-    architecture task.
-    """
+    """Resolve reviewed subtitles before layout, preserving language-specific fallback."""
     if ayah.subtitle_mode is not None:
         return ayah
 
     ordered = ayah.ordered_translations
-    if tuple(item.language for item in ordered) != ("en",):
+    languages = tuple(item.language for item in ordered)
+    if languages == ("en", "de") and config.subtitle_config.subtitle_mode != MODE_STATIC_FULL_AYAH:
+        verse = f"{ayah.surah_number}:{ayah.ayah_number}"
+        if bilingual_alignment_root is None:
+            bilingual_alignment_root = resolve_alignment_root(
+                verse, DEFAULT_BILINGUAL_ALIGNMENT_ROOT, PACKAGED_BILINGUAL_ALIGNMENT_ROOT,
+            )
+        if alignment_root is None:
+            alignment_root = (PACKAGED_ALIGNMENT_ROOT if bilingual_alignment_root == PACKAGED_BILINGUAL_ALIGNMENT_ROOT
+                              else DEFAULT_ALIGNMENT_ROOT)
+        return _resolve_bilingual_ayah(ayah, root=bilingual_alignment_root, english_root=alignment_root, preview=False)
+    if languages != ("en",):
         return ayah
 
     english = ordered[0]

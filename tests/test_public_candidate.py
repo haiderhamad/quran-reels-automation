@@ -34,7 +34,7 @@ class PublicInstallationTests(unittest.TestCase):
             self.assertEqual(len(readers), 1)
             self.assertIn("ROWWAD_REFERENCE_OBJECT_KEY", readers[0])
             self.assertIn("ROWWAD_REFERENCE_GZIP_SHA256", readers[0])
-            self.assertIn("python3 -m scripts.prepare_rowwad_reference", readers[0])
+            self.assertIn("python3 -m scripts.prepare_rowwad_reference --public-if-unconfigured", readers[0])
             self.assertIn("QURAN_REELS_TRANSLATION_CACHE_DIR", readers[0])
 
     def test_no_operator_schedule_or_review_approval_bootstrapped(self):

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import csv
 import gzip
 import hashlib
+import io
 import json
 import logging
 import os
+import re
 import socket
 import ssl
 import tempfile
@@ -22,6 +25,12 @@ from typing import Callable, Optional, Sequence, Union
 DEFAULT_API_BASE_URL = "https://quranenc.com/api/v1"
 DEFAULT_TRANSLATION_KEY = "english_rwwad"
 GERMAN_TRANSLATION_KEY = "german_rwwad"
+ENGLISH_ARCHIVE_URL = "https://quranenc.com/downloads/csv/english_rwwad_v1.0.19-csv.1.csv"
+ENGLISH_ARCHIVE_SHA256 = "5139f039ad1b70a84760b43426ecab0fc043cf4613cab148ecb9358a77343bbd"
+GERMAN_ARCHIVE_URL = "https://quranenc.com/downloads/csv/german_rwwad_v1.0.15-csv.1.csv"
+# Project-verified raw publisher export and normalized cache (including its source notice).
+GERMAN_ARCHIVE_SHA256 = "d34e08397e93b39e2441c2e41c96201ad0aefa88a1ac9fdbade37d329bb44f9f"
+GERMAN_ARCHIVE_BODY_SHA256 = "ae1564f2e76bf44ec243560d78b12370550ed96f85a8442c6d2576b3cb2d6752"
 EXPECTED_LANGUAGE_ISO = "en"  # Backward-compatible default.
 SUPPORTED_TRANSLATION_SOURCES = {
     "en": DEFAULT_TRANSLATION_KEY,
@@ -43,7 +52,7 @@ TRANSLATION_FETCH_BACKOFF_SECONDS = (0.0, 2.0, 5.0, 10.0)
 TRANSLATION_CACHE_SCHEMA_VERSION = 1
 DEFAULT_TRANSLATION_CACHE_DIR = ".cache/translations"
 # Project-preserved original source identity, not a publisher-signed checksum.
-# Keep raw historical references private; no newer text may inherit this pin.
+# No newer edition may inherit the historical corpus pin.
 PINNED_TRANSLATION_BODY_HASHES = {
     ("english_rwwad", "1.0.19"): "c3369ca614d376b6f5f81fd4273a74e7379d9c5fc8beccc99b1820206a796dd6",
 }
@@ -447,7 +456,7 @@ def _retry_category_for_exception(err: BaseException) -> Optional[str]:
     return None
 
 
-def _fetch_url_json(
+def _fetch_url_bytes(
     url: str,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     user_agent: str = DEFAULT_USER_AGENT,
@@ -456,8 +465,10 @@ def _fetch_url_json(
     backoff_seconds: Sequence[float] = TRANSLATION_FETCH_BACKOFF_SECONDS,
     sleep_fn: Optional[Callable[[float], None]] = None,
     resource_label: str = "dataset_resource",
+    accept: str = "application/json",
+    max_bytes: Optional[int] = None,
 ) -> bytes:
-    """Fetch one secure QuranEnc JSON resource with bounded transient retries.
+    """Fetch one secure QuranEnc resource with bounded transient retries.
 
     Only transport faults and documented temporary HTTP statuses retry.  JSON,
     schema, identity, and version validation occur outside this function and
@@ -476,7 +487,7 @@ def _fetch_url_json(
         url,
         headers={
             "User-Agent": user_agent,
-            "Accept": "application/json",
+            "Accept": accept,
         },
     )
     ssl_context = _build_ssl_context()
@@ -507,7 +518,12 @@ def _fetch_url_json(
                             f"HTTP request returned status {status_code}."
                         )
                     raise response_error
-                return resp.read()
+                if max_bytes is None:
+                    return resp.read()
+                content = resp.read(max_bytes + 1)
+                if len(content) > max_bytes:
+                    raise TranslationSourceError("Translation resource size limit exceeded.")
+                return content
         except TranslationSourceError:
             raise
         except Exception as err:
@@ -569,7 +585,7 @@ def fetch_translation_metadata(
         f"{api_base_url.rstrip('/')}/translations/list/"
         f"{expected_language_iso}?localization=en"
     )
-    raw_body = _fetch_url_json(
+    raw_body = _fetch_url_bytes(
         url,
         timeout=timeout,
         user_agent=user_agent,
@@ -610,7 +626,7 @@ def fetch_surah_translation(
         )
 
     url = f"{api_base_url.rstrip('/')}/translation/sura/{translation_key}/{surah_number}"
-    raw_body = _fetch_url_json(
+    raw_body = _fetch_url_bytes(
         url,
         timeout=timeout,
         user_agent=user_agent,
@@ -621,6 +637,76 @@ def fetch_surah_translation(
         resource_label=f"surah:{translation_key}:{surah_number}",
     )
     return parse_surah_translation_payload(raw_body, expected_surah=surah_number)
+
+
+def _parse_pinned_archive(raw: bytes, language: str) -> TranslationData:
+    """Validate the publisher's versioned CSV and preserve its original text and notice."""
+    key = SUPPORTED_TRANSLATION_SOURCES[language]
+    version = EXPECTED_TRANSLATION_VERSIONS[key]
+    label, expected_digest = (("English", ENGLISH_ARCHIVE_SHA256) if language == "en"
+                              else ("German", GERMAN_ARCHIVE_SHA256))
+    if hashlib.sha256(raw).hexdigest() != expected_digest:
+        raise TranslationSourceError(f"{label} archive hash mismatch.")
+    try:
+        rows = csv.reader(io.StringIO(raw.decode("utf-8"), newline=""), strict=True)
+        preamble = next(rows, [])
+        if len(preamble) != 5 or preamble[1:] != [""] * 4:
+            raise TranslationSourceError(f"{label} archive source notice is missing.")
+        notice = preamble[0]
+        title = "Translation of the meanings of the Noble Qur'an"
+        headers = notice.splitlines()
+        required = {"# " + title, f"# Language: {label}", f"# Translation ID: {key}",
+                    "# Source: https://quranenc.com"}
+        updated = re.search(rf"^# Last update: ([0-9-]+ [0-9:]+) \(v{re.escape(version)}-csv\.1\)\r?$",
+                            notice, re.MULTILINE)
+        if not required.issubset(headers) or not updated:
+            raise TranslationSourceError(f"{label} archive source/version mismatch.")
+        if next(rows, []) != ["id", "sura", "aya", "translation", "footnotes"]:
+            raise TranslationSourceError(f"{label} archive column mismatch.")
+        surahs = []
+        row_id = 0
+        for surah_number, count in STANDARD_SURAH_AYAH_COUNTS.items():
+            ayahs = []
+            for ayah_number in range(1, count + 1):
+                row_id += 1
+                row = next(rows, [])
+                expected = [str(row_id), str(surah_number), str(ayah_number)]
+                if len(row) != 5 or row[:3] != expected or not row[3]:
+                    raise TranslationSourceError(f"{label} archive invalid row at {surah_number}:{ayah_number}.")
+                ayahs.append(TranslationAyah(surah_number, ayah_number, row[3], row[4]))
+            surahs.append(TranslationSurah(surah_number, count, tuple(ayahs)))
+        if next(rows, None) is not None:
+            raise TranslationSourceError(f"{label} archive contains extra rows.")
+    except (UnicodeDecodeError, csv.Error) as err:
+        raise TranslationSourceError(f"{label} archive CSV is malformed.") from err
+    if language == "en":
+        # Rebuild the previously pinned API representation from the CSV rows. The
+        # title/attribution are QuranEnc's public English-localized catalog entry;
+        # the timestamp is the CSV's 2026-03-12 23:45:25 in Riyadh (UTC+03:00).
+        if updated.group(1) != "2026-03-12 23:45:25":
+            raise TranslationSourceError("English archive source date mismatch.")
+        metadata = TranslationSourceMetadata(
+            provider="QuranEnc", api_base_url=DEFAULT_API_BASE_URL, translation_key=key,
+            language_iso_code=language, version=version, last_update=1773348325,
+            title="English Translation - Rowwad Translation Center",
+            description=("Translated by the team of the Rowwad Translation Center, in cooperation with "
+                         "the Rabwah Dawah Association, the Islamic Content Service Association in "
+                         "Languages, and the IslamHouse.com website."),
+        )
+    else:
+        metadata = TranslationSourceMetadata(
+            provider="QuranEnc", api_base_url=GERMAN_ARCHIVE_URL, translation_key=key,
+            language_iso_code=language, version=version, last_update=updated.group(1),
+            title=title, description=notice,
+        )
+    return TranslationData(metadata, tuple(surahs))
+
+
+def _fetch_pinned_archive(language: str, **transport) -> TranslationData:
+    url = ENGLISH_ARCHIVE_URL if language == "en" else GERMAN_ARCHIVE_URL
+    raw = _fetch_url_bytes(url, accept="text/csv", max_bytes=MAX_TRANSLATION_REFERENCE_BYTES,
+                           resource_label=f"{SUPPORTED_TRANSLATION_SOURCES[language]}:csv", **transport)
+    return _parse_pinned_archive(raw, language)
 
 
 def fetch_complete_translation_data(
@@ -741,9 +827,11 @@ def _cache_body_sha256(body: dict) -> str:
 
 
 def _require_pinned_translation_body(data: TranslationData) -> None:
-    """Bind cached, imported and fetched English text to the original corpus."""
+    """Bind cached, imported and fetched data to their original corpus."""
     identity = (data.source.translation_key, data.source.version)
     expected = PINNED_TRANSLATION_BODY_HASHES.get(identity)
+    if data.source.translation_key == GERMAN_TRANSLATION_KEY:
+        expected = GERMAN_ARCHIVE_BODY_SHA256
     if expected is not None and _cache_body_sha256(_cache_body_for_data(data)) != expected:
         raise TranslationSourceError(
             f"Pinned translation body hash mismatch for '{identity[0]}' version '{identity[1]}'."
@@ -942,7 +1030,7 @@ def fetch_translation_data_for_language(
     backoff_seconds: Sequence[float] = TRANSLATION_FETCH_BACKOFF_SECONDS,
     sleep_fn: Optional[Callable[[float], None]] = None,
 ) -> TranslationData:
-    """Load the exact pinned source from cache, explicit private reference or API."""
+    """Load the pinned edition from cache, an explicit English reference or QuranEnc."""
     translation_key = SUPPORTED_TRANSLATION_SOURCES.get(language_iso_code)
     if translation_key is None:
         raise TranslationSourceError(
@@ -958,12 +1046,16 @@ def fetch_translation_data_for_language(
         translation_key=translation_key,
         translation_version=expected_version,
     )
+    use_german_archive = translation_key == GERMAN_TRANSLATION_KEY
+    if use_german_archive and (api_base_url.rstrip("/") != DEFAULT_API_BASE_URL or reference_path is not None):
+        raise TranslationSourceError("German Rowwad must use the pinned official archive.")
+    source_url = GERMAN_ARCHIVE_URL if use_german_archive else api_base_url.rstrip("/")
     cached = _load_cached_translation_data(
         cache_path,
         translation_key=translation_key,
         translation_version=expected_version,
         language_iso_code=language_iso_code,
-        api_base_url=api_base_url,
+        api_base_url=source_url,
     )
     if cached is not None:
         return cached
@@ -980,18 +1072,17 @@ def fetch_translation_data_for_language(
         source_kind = "private_reference"
     else:
         try:
-            data = fetch_complete_translation_data(
-                api_base_url=api_base_url,
-                translation_key=translation_key,
-                language_iso_code=language_iso_code,
-                timeout=timeout,
-                user_agent=user_agent,
-                max_attempts=max_attempts,
-                max_retries=max_retries,
-                backoff_seconds=backoff_seconds,
-                sleep_fn=sleep_fn,
-                expected_version=expected_version,
+            transport = dict(
+                timeout=timeout, user_agent=user_agent, max_attempts=max_attempts,
+                max_retries=max_retries, backoff_seconds=backoff_seconds, sleep_fn=sleep_fn,
             )
+            if api_base_url.rstrip("/") == DEFAULT_API_BASE_URL:
+                data = _fetch_pinned_archive(language_iso_code, **transport)
+            else:
+                data = fetch_complete_translation_data(
+                    api_base_url=api_base_url, translation_key=translation_key,
+                    language_iso_code=language_iso_code, expected_version=expected_version, **transport,
+                )
         except TranslationTransientFetchError as err:
             raise TranslationDatasetFetchExhaustedError(
                 "TRANSLATION_DATASET_FETCH_EXHAUSTED "

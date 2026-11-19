@@ -118,7 +118,7 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install -r requirements.txt
 
-      - name: Verify installation-owned Rowwad source
+      - name: Prepare pinned Rowwad source
         env:
           ROWWAD_REFERENCE_OBJECT_KEY: ${{ secrets.ROWWAD_REFERENCE_OBJECT_KEY }}
           ROWWAD_REFERENCE_GZIP_SHA256: ${{ vars.ROWWAD_REFERENCE_GZIP_SHA256 }}
@@ -130,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          python3 -m scripts.prepare_rowwad_reference --destination-dir "$RUNNER_TEMP/rowwad1019"
+          python3 -m scripts.prepare_rowwad_reference --public-if-unconfigured --destination-dir "$RUNNER_TEMP/rowwad1019"
           printf 'QURAN_REELS_TRANSLATION_CACHE_DIR=%s\n' "$RUNNER_TEMP/rowwad1019/cache" >> "$GITHUB_ENV"
 
       - name: Fetch CV models and verified typography fonts

@@ -10,7 +10,7 @@ import tempfile
 from engine import alignments, quran, translation
 
 
-def verify(reference: Path, verse: str | None, root: Path) -> dict:
+def verify(reference: Path, verse: str | None, root: Path | None) -> dict:
     record = None
     if verse:
         record = alignments.load_alignment_record(verse, root=root)
@@ -45,7 +45,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--verse", help="Also authenticate the Arabic corpus and check this reviewed manifest")
-    parser.add_argument("--manifest-root", type=Path, default=alignments.DEFAULT_ALIGNMENT_ROOT)
+    parser.add_argument("--manifest-root", type=Path, help="Use only records in this directory")
     args = parser.parse_args()
     try:
         print(json.dumps(verify(args.reference, args.verse, args.manifest_root), sort_keys=True))

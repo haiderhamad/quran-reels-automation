@@ -14,6 +14,7 @@ from engine.calm_reels_cycle import (
     CATALOG_ID, FreshCycleError, require_owner_ayah_source,
 )
 from engine.publisher import check_reciter_reuse_rights
+from engine.reel_publication_policy import is_unverified_alignment_preview
 from engine.storage import RunRecord
 from engine.translation import EXPECTED_TRANSLATION_VERSIONS, SUPPORTED_TRANSLATION_SOURCES
 
@@ -101,6 +102,8 @@ def require_owner_v1_dispatch_record(record: RunRecord) -> tuple[int, str]:
         caption, subtitle = caption_rows[index], subtitle_rows[index]
         if not isinstance(caption, Mapping) or not isinstance(subtitle, Mapping):
             raise OwnerV1DispatchError('OWNER_V1_FINAL_SOURCE_EVIDENCE_MISSING')
+        if is_unverified_alignment_preview(subtitle):
+            raise OwnerV1DispatchError("OWNER_V1_UNVERIFIED_ALIGNMENT_PREVIEW")
         _validate_owner_member(record, key, hashes[key], caption, subtitle)
     return cycle, ayah_key
 

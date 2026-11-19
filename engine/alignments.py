@@ -17,6 +17,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 
 ALIGNMENT_SCHEMA_VERSION = 1
+DIGEST_ALIGNMENT_SCHEMA_VERSION = 2
 ALIGNMENT_DATA_VERSION = "english_rwwad-v1"
 TOKENIZATION_VERSION = "whitespace_v1"
 TIMING_STRATEGY_ARABIC_BASE_LETTER_WEIGHT_V1 = "arabic_base_letter_weight_v1"
@@ -26,6 +27,8 @@ SUBTITLE_MODE_FULL_AYAH_FALLBACK = "FULL_AYAH_FALLBACK"
 DEFAULT_ALIGNMENT_ROOT = (
     Path(__file__).resolve().parents[1] / "alignments" / "english_rwwad" / "v1"
 )
+
+PACKAGED_ALIGNMENT_ROOT = Path(__file__).resolve().parents[1] / "data/alignments/english_rwwad/v1"
 
 _VERSE_KEY_RE = re.compile(r"^([1-9]|[1-9][0-9]|1[01][0-9]|11[0-4]):([1-9][0-9]{0,2})$")
 
@@ -45,6 +48,8 @@ class AlignmentPanel:
     english_token_end: int
     arabic_text: Optional[str] = None
     english_text: Optional[str] = None
+    arabic_sha256: Optional[str] = None
+    english_sha256: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -176,7 +181,8 @@ def parse_alignment_record(
         },
         "alignment record",
     )
-    if raw["schema_version"] != ALIGNMENT_SCHEMA_VERSION:
+    version = raw["schema_version"]
+    if type(version) is not int or version not in (ALIGNMENT_SCHEMA_VERSION, DIGEST_ALIGNMENT_SCHEMA_VERSION):
         raise AlignmentValidationError(
             f"Unsupported alignment schema_version {raw['schema_version']!r}."
         )
@@ -199,6 +205,8 @@ def parse_alignment_record(
     raw_panels = raw["panels"]
     if not isinstance(raw_panels, list) or not raw_panels:
         raise AlignmentValidationError("panels must be a non-empty array.")
+    proof_fields = (("arabic_text", "english_text") if version == ALIGNMENT_SCHEMA_VERSION
+                    else ("arabic_sha256", "english_sha256"))
     panels: list[AlignmentPanel] = []
     for index, item in enumerate(raw_panels):
         if not isinstance(item, Mapping):
@@ -211,8 +219,7 @@ def parse_alignment_record(
                 "arabic_word_end",
                 "english_token_start",
                 "english_token_end",
-                "arabic_text",
-                "english_text",
+                *proof_fields,
             },
             f"panels[{index}]",
         )
@@ -231,13 +238,12 @@ def parse_alignment_record(
                 english_token_end=_require_index(
                     item["english_token_end"], f"panels[{index}].english_token_end"
                 ),
-                arabic_text=_require_string(item["arabic_text"], f"panels[{index}].arabic_text"),
-                english_text=_require_string(item["english_text"], f"panels[{index}].english_text"),
+                **{field: _require_string(item[field], f"panels[{index}].{field}") for field in proof_fields},
             )
         )
 
     return AlignmentRecord(
-        schema_version=ALIGNMENT_SCHEMA_VERSION,
+        schema_version=version,
         data_version=ALIGNMENT_DATA_VERSION,
         verse_key=_require_string(raw["verse_key"], "verse_key"),
         arabic_source=_require_string(arabic["source"], "arabic.source"),
@@ -265,15 +271,13 @@ def parse_alignment_record(
     )
 
 
-def load_alignment_record(
-    verse_key: str,
-    *,
-    root: Path = DEFAULT_ALIGNMENT_ROOT,
-) -> Optional[AlignmentRecord]:
-    """Load one record, returning ``None`` only when no record exists."""
-    path = alignment_path_for_verse(verse_key, root)
-    if not path.is_file():
-        return None
+def read_alignment_json(path: Path) -> tuple[Mapping[str, Any], str]:
+    """Read and fingerprint the same bytes, rejecting ambiguous JSON at every level."""
+    try:
+        content = path.read_bytes()
+    except OSError as err:
+        raise AlignmentValidationError(f"Failed to read alignment {path}: {err}") from err
+
     def reject_duplicate_keys(pairs: Sequence[tuple[str, Any]]) -> dict[str, Any]:
         value: dict[str, Any] = {}
         for key, item in pairs:
@@ -286,17 +290,43 @@ def load_alignment_record(
 
     try:
         raw = json.loads(
-            path.read_text(encoding="utf-8"),
+            content.decode("utf-8"),
             object_pairs_hook=reject_duplicate_keys,
         )
     except (OSError, UnicodeError, json.JSONDecodeError) as err:
         raise AlignmentValidationError(f"Failed to read alignment {path}: {err}") from err
+    if not isinstance(raw, Mapping):
+        raise AlignmentValidationError(f"Alignment {path} must be a JSON object.")
+    return raw, hashlib.sha256(content).hexdigest()
+
+
+def alignment_source_path(path: Path) -> str:
+    """Produce a stable repository-relative audit path when available."""
     try:
-        relative = path.resolve().relative_to(Path(__file__).resolve().parents[1])
-        source_path = relative.as_posix()
+        return path.resolve().relative_to(Path(__file__).resolve().parents[1]).as_posix()
     except ValueError:
-        source_path = str(path.resolve())
-    return parse_alignment_record(raw, source_path=source_path)
+        return str(path.resolve())
+
+
+def resolve_alignment_root(verse_key: str, local_root: Path, packaged_root: Path) -> Path:
+    """Prefer an installation's own record whenever present, even if it is invalid."""
+    path = alignment_path_for_verse(verse_key, local_root)
+    return local_root if path.exists() or path.is_symlink() else packaged_root
+
+
+def load_alignment_record(
+    verse_key: str,
+    *,
+    root: Optional[Path] = None,
+) -> Optional[AlignmentRecord]:
+    """Load one record, returning ``None`` only when no record exists."""
+    if root is None:
+        root = resolve_alignment_root(verse_key, DEFAULT_ALIGNMENT_ROOT, PACKAGED_ALIGNMENT_ROOT)
+    path = alignment_path_for_verse(verse_key, root)
+    if not path.exists() and not path.is_symlink():
+        return None
+    raw, _digest = read_alignment_json(path)
+    return parse_alignment_record(raw, source_path=alignment_source_path(path))
 
 
 def validate_alignment_record(
@@ -382,9 +412,15 @@ def validate_alignment_sources(
         english_panel_text = " ".join(
             english_tokens[panel.english_token_start : panel.english_token_end]
         )
-        if normalize_source_text(panel.arabic_text or "") != arabic_panel_text:
+        if record.schema_version == DIGEST_ALIGNMENT_SCHEMA_VERSION:
+            arabic_matches = normalized_sha256(arabic_panel_text) == panel.arabic_sha256
+            english_matches = normalized_sha256(english_panel_text) == panel.english_sha256
+        else:
+            arabic_matches = normalize_source_text(panel.arabic_text or "") == arabic_panel_text
+            english_matches = normalize_source_text(panel.english_text or "") == english_panel_text
+        if not arabic_matches:
             raise AlignmentValidationError("Stored Arabic panel text does not match its source range.")
-        if normalize_source_text(panel.english_text or "") != english_panel_text:
+        if not english_matches:
             raise AlignmentValidationError("Stored English panel text does not match its source range.")
         validated.append(
             ValidatedAlignmentPanel(
@@ -414,7 +450,7 @@ def load_validated_alignment(
     english_text: str,
     english_translation_key: str,
     english_translation_version: str,
-    root: Path = DEFAULT_ALIGNMENT_ROOT,
+    root: Optional[Path] = None,
 ) -> Optional[ValidatedAlignment]:
     """Load and validate one production record; missing records return ``None``."""
     record = load_alignment_record(verse_key, root=root)
@@ -430,15 +466,16 @@ def load_validated_alignment(
     )
 
 
-def count_verified_alignments(root: Path = DEFAULT_ALIGNMENT_ROOT) -> int:
+def count_verified_alignments(root: Optional[Path] = None) -> int:
     """Count parseable verified records for diagnostics without source validation."""
+    roots = (root,) if root is not None else (PACKAGED_ALIGNMENT_ROOT, DEFAULT_ALIGNMENT_ROOT)
+    # The same verse in the installation overrides its packaged counterpart.
+    paths = {p.relative_to(directory): p for directory in roots
+             for p in directory.glob("[0-9][0-9][0-9]/[0-9][0-9][0-9].json")}
     count = 0
-    if not root.is_dir():
-        return 0
-    for path in sorted(root.glob("[0-9][0-9][0-9]/[0-9][0-9][0-9].json")):
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        record = parse_alignment_record(raw, source_path=str(path))
-        if record.status == STATUS_VERIFIED:
+    for path in paths.values():
+        raw, _ = read_alignment_json(path)
+        if parse_alignment_record(raw, source_path=str(path)).status == STATUS_VERIFIED:
             count += 1
     return count
 

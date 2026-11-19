@@ -198,6 +198,33 @@ class PrepareRowwadReferenceTests(unittest.TestCase):
                     self.module.create_reference_client(dict(settings, B2_ENDPOINT=endpoint))
                 factory.assert_not_called()
 
+    def test_public_preparation_uses_the_pinned_loader_without_b2(self):
+        with patch.dict(os.environ, {}, clear=True), \
+             patch.object(self.module, "create_reference_client") as b2, \
+             patch.object(self.module, "fetch_translation_data_for_language", return_value=self.data) as load, \
+             contextlib.redirect_stdout(io.StringIO()):
+            tr._write_validated_translation_cache(self.cache_file(), self.data)
+            self.assertEqual(self.module.main(["--public-if-unconfigured", "--destination-dir", str(self.destination)]), 0)
+        load.assert_called_once_with("en", cache_dir=self.destination / "cache")
+        b2.assert_not_called()
+
+    def test_public_preparation_requires_the_validated_cache_to_be_on_disk(self):
+        cache = self.cache_file()
+        cache.parent.mkdir(parents=True)
+        cache.write_text("{invalid", encoding="utf-8")
+        with patch.dict(os.environ, {}, clear=True), \
+             patch.object(tr, "_write_validated_translation_cache", side_effect=OSError("no space")), \
+             patch.object(tr, "_fetch_pinned_archive", return_value=self.data), \
+             contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(self.module.main(["--public-if-unconfigured", "--destination-dir", str(self.destination)]), 1)
+
+    def test_partial_operator_configuration_never_downgrades_to_public(self):
+        with patch.dict(os.environ, {"ROWWAD_REFERENCE_OBJECT_KEY": "example/source.gz"}, clear=True), \
+             patch.object(self.module, "fetch_translation_data_for_language") as load, \
+             contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(self.module.main(["--public-if-unconfigured", "--destination-dir", str(self.destination)]), 1)
+        load.assert_not_called()
+
     def test_cli_accepts_only_destination_and_never_writes_provider_state(self):
         client = FakeReferenceClient(self.payload)
         with patch.object(self.module, "create_reference_client", return_value=client), patch.dict(

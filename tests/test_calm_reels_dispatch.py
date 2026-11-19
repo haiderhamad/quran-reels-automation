@@ -90,6 +90,19 @@ class ClaimGateTests(TestCase):
             env=changes.get("env", self.env),
         )
 
+    def test_saved_preview_is_rejected_before_owner_reservation(self):
+        for marker in (
+            {"subtitle_mode": "UNVERIFIED_ALIGNMENT_PREVIEW"},
+            {"alignment_status": "unverified"},
+            {"alignment_data_version": "english_german_rwwad-candidate-v1"},
+        ):
+            with self.subTest(marker=marker):
+                record = valid_record()
+                record.provenance["subtitle_ayahs"][0].update(marker)
+                with self.assertRaisesRegex(OwnerV1DispatchError, "UNVERIFIED_ALIGNMENT"):
+                    self.reserve(record)
+        self.state.claim_calm_reels_v1_next_ayah.assert_not_called()
+
     def test_source_verified_first_pending_claim_exact_identity(self):
         result = self.reserve()
         self.assertEqual(result, {"state": "CLAIMED", "ayah_key": "1:1", "cycle_number": 1})

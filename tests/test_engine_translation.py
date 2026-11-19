@@ -161,11 +161,12 @@ class TranslationModuleTests(unittest.TestCase):
             description=None,
         )
         with patch(
-            "engine.translation.fetch_complete_translation_data",
+            "engine.translation._fetch_pinned_archive",
             return_value=TranslationData(source=source, surahs=()),
         ):
             with self.assertRaisesRegex(TranslationSourceError, "version mismatch"):
-                fetch_translation_data_for_language("de")
+                with tempfile.TemporaryDirectory() as cache_dir:
+                    fetch_translation_data_for_language("de", cache_dir=cache_dir)
 
     def test_metadata_rejects_missing_target_key(self) -> None:
         raw = {"translations": [{"key": "english_saheeh", "language_iso_code": "en", "version": "1.0", "title": "Saheeh", "last_update": 1}]}
@@ -480,7 +481,7 @@ class TranslationModuleTests(unittest.TestCase):
                 translation_version="1.0.19",
             )
             _write_validated_translation_cache(cache_path, data)
-            with patch("engine.translation.fetch_complete_translation_data") as fetch_complete:
+            with patch("engine.translation._fetch_pinned_archive") as fetch_complete:
                 cached = fetch_translation_data_for_language("en", cache_dir=cache_dir)
         self.assertEqual(cached.total_ayahs, EXPECTED_TOTAL_AYAH_COUNT)
         fetch_complete.assert_not_called()
@@ -496,7 +497,7 @@ class TranslationModuleTests(unittest.TestCase):
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_path.write_text("{not-json", encoding="utf-8")
             with patch(
-                "engine.translation.fetch_complete_translation_data",
+                "engine.translation._fetch_pinned_archive",
                 return_value=data,
             ) as fetch_complete:
                 loaded = fetch_translation_data_for_language("en", cache_dir=cache_dir)
@@ -507,11 +508,11 @@ class TranslationModuleTests(unittest.TestCase):
         data = make_valid_complete_dataset()
         with tempfile.TemporaryDirectory() as cache_dir:
             with patch(
-                "engine.translation.fetch_complete_translation_data",
+                "engine.translation._fetch_pinned_archive",
                 return_value=data,
             ) as fetch_complete:
                 first = fetch_translation_data_for_language("en", cache_dir=cache_dir)
-            with patch("engine.translation.fetch_complete_translation_data") as second_fetch:
+            with patch("engine.translation._fetch_pinned_archive") as second_fetch:
                 second = fetch_translation_data_for_language("en", cache_dir=cache_dir)
         self.assertEqual(first.get_ayah(2, 21).translation_text, second.get_ayah(2, 21).translation_text)
         fetch_complete.assert_called_once()
@@ -530,7 +531,7 @@ class TranslationModuleTests(unittest.TestCase):
             cache_payload["translation_version"] = "0.0.1"
             cache_path.write_text(json.dumps(cache_payload), encoding="utf-8")
             with patch(
-                "engine.translation.fetch_complete_translation_data",
+                "engine.translation._fetch_pinned_archive",
                 return_value=data,
             ) as fetch_complete:
                 fetch_translation_data_for_language("en", cache_dir=cache_dir)

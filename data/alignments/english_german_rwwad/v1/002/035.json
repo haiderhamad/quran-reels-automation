@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "data_version": "english_german_rwwad-v1",
+  "verse_key": "2:35",
+  "arabic": {
+    "source": "quran_foundation_text_uthmani",
+    "normalized_sha256": "dd8567bf588d0aa0b66edca66c09dc3ff02372e23729ae208e06be6e540754d6"
+  },
+  "english": {
+    "translation_key": "english_rwwad",
+    "translation_version": "1.0.19",
+    "normalized_sha256": "c5285a1fffdd4ef00f188aaa2581b3a7d2169aa41caa7b9d51beebf400c3575a"
+  },
+  "german": {
+    "translation_key": "german_rwwad",
+    "translation_version": "1.0.15",
+    "normalized_sha256": "9aeb8437682e37decde0c1015aa257554d3cd3378264054e22f1cf62a79c236b",
+    "source_url": "https://quranenc.com/downloads/csv/german_rwwad_v1.0.15-csv.1.csv",
+    "source_file_sha256": "d34e08397e93b39e2441c2e41c96201ad0aefa88a1ac9fdbade37d329bb44f9f",
+    "footnotes_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "english_alignment_sha256": "3cced0d8cbcb2edb0bc96e5a6ece6dd012a04a12b8b1449bbb9ad21098819fc4",
+  "tokenization_version": "whitespace_v1",
+  "timing_strategy": "arabic_base_letter_weight_v1",
+  "status": "verified",
+  "review_note": "German panel boundaries reviewed for the read-92 recitation (18.560 seconds), with transitions at 6.338 and 10.864 seconds.",
+  "panels": [
+    {
+      "panel_index": 0,
+      "german_token_start": 0,
+      "german_token_end": 12,
+      "german_sha256": "96b20ca6f1e2faeaacd79c50e680082cb70eab4ddcc6b8175da23e1ca8d02d3a"
+    },
+    {
+      "panel_index": 1,
+      "german_token_start": 12,
+      "german_token_end": 21,
+      "german_sha256": "8c14771f54aef46bd6388bae9fac02ad27f3ccc1333ef49ecf250ded08aff286"
+    },
+    {
+      "panel_index": 2,
+      "german_token_start": 21,
+      "german_token_end": 34,
+      "german_sha256": "3c9f5deeab845c713a9c89b686845886389e333bc9884b5e848d25ca7d9f2fd7"
+    }
+  ],
+  "reviewed_at": "2026-11-19"
+}

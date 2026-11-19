@@ -50,6 +50,6 @@ Review the saved dashboard automation setting, Berlin publishing slots and worke
 
 ## Storage and delivery
 
-Use separate media and source-reference credentials. The reference key can read only the approved object. Configure your own authorized HTTPS media delivery origin and Buffer organization/channel IDs. Account connection, source rights and channel selection are prerequisites. Reconcile uncertain Buffer outcomes with saved claims and platform readback before attempting another send.
+The default Rowwad downloads use public HTTPS. If you choose B2 for your English reference, give it a separate read-only key scoped to that reference. Configure your own authorized HTTPS media delivery origin and Buffer organization/channel IDs. Account connection, source rights and channel selection are prerequisites. Reconcile uncertain Buffer outcomes with saved claims and platform readback before attempting another send.
 
-The [setup guide](docs/PUBLIC_SETUP.md) describes provider settings, exact source packaging and privately supplied panel manifests.
+The [setup guide](docs/PUBLIC_SETUP.md) describes provider settings, pinned public downloads, optional source packaging and reviewed panel manifests.

@@ -51,3 +51,6 @@ assets/fonts/OFL-Amiri.txt whitespace=-blank-at-eol,-blank-at-eof
 *.js -text whitespace=cr-at-eol
 requirements.txt -text whitespace=cr-at-eol
 *.ps1 text eol=crlf
+
+# The bilingual companion verifies the raw bytes of its English parent.
+data/alignments/**/*.json text eol=lf

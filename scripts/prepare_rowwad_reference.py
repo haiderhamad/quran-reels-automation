@@ -1,4 +1,4 @@
-"""Prepare an ephemeral original-source cache from a verified installation-owned object."""
+"""Prepare the pinned English cache from QuranEnc or an installation-owned object."""
 from __future__ import annotations
 
 import argparse
@@ -15,11 +15,15 @@ from urllib.parse import urlsplit
 
 from engine.translation import (
     DEFAULT_TRANSLATION_KEY, EXPECTED_TRANSLATION_VERSIONS,
-    _cache_body_for_data, _cache_body_sha256, _cache_path,
-    fetch_translation_data_for_language,
+    _cache_body_for_data, _cache_body_sha256, _cache_path, _load_cached_translation_data,
+    TranslationSourceError, fetch_translation_data_for_language,
 )
 
 MAX_COMPRESSED_BYTES = 1024 * 1024
+SOURCE_B2_SETTINGS = ("B2_ENDPOINT", "B2_REGION", "B2_APPLICATION_KEY_ID",
+                      "B2_APPLICATION_KEY", "B2_BUCKET_NAME")
+OPERATOR_SOURCE_SETTINGS = (*SOURCE_B2_SETTINGS, "ROWWAD_REFERENCE_OBJECT_KEY",
+                            "ROWWAD_REFERENCE_GZIP_SHA256")
 
 
 class ReferencePreparationError(ValueError):
@@ -29,8 +33,7 @@ class ReferencePreparationError(ValueError):
 def create_reference_client(environ: Mapping[str, str] | None = None) -> Any:
     """Create only a bounded B2 transport; credentials are supplied per step."""
     source = os.environ if environ is None else environ
-    required = ("B2_ENDPOINT", "B2_REGION", "B2_APPLICATION_KEY_ID", "B2_APPLICATION_KEY", "B2_BUCKET_NAME")
-    if any(not source.get(name, "").strip() for name in required):
+    if any(not source.get(name, "").strip() for name in SOURCE_B2_SETTINGS):
         raise ReferencePreparationError("ROWWAD_REFERENCE_CONFIG_MISSING")
     try:
         endpoint = urlsplit(source["B2_ENDPOINT"])
@@ -111,16 +114,35 @@ def prepare_reference(*, client: Any, bucket_name: str, destination_dir: Path,
         raise ReferencePreparationError("ROWWAD_REFERENCE_PREPARATION_FAILED") from None
 
 
+def prepare_public_reference(destination_dir: Path) -> dict[str, object]:
+    cache = destination_dir / "cache"
+    data = fetch_translation_data_for_language("en", cache_dir=cache)
+    identity = {"translation_key": data.source.translation_key, "translation_version": data.source.version}
+    # The in-memory loader can succeed when a cache write is refused. This
+    # command promises a usable cache to the next workflow step.
+    if _load_cached_translation_data(_cache_path(cache, **identity), language_iso_code="en",
+                                     api_base_url=data.source.api_base_url, **identity) is None:
+        raise ReferencePreparationError("ROWWAD_REFERENCE_CACHE_UNAVAILABLE")
+    return {"translation_key": data.source.translation_key, "version": data.source.version,
+            "surahs": data.total_surahs, "ayahs": data.total_ayahs,
+            "body_sha256": _cache_body_sha256(_cache_body_for_data(data)), "cache_directory": str(cache)}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--destination-dir", type=Path, required=True)
+    parser.add_argument("--public-if-unconfigured", action="store_true",
+                        help="Use the pinned public source when no B2 source settings are configured.")
     args = parser.parse_args(argv)
     try:
-        report = prepare_reference(client=create_reference_client(),
-            bucket_name=os.environ.get("B2_BUCKET_NAME", ""), destination_dir=args.destination_dir,
-            object_key=os.environ.get("ROWWAD_REFERENCE_OBJECT_KEY", ""),
-            gzip_sha256=os.environ.get("ROWWAD_REFERENCE_GZIP_SHA256", ""))
-    except ReferencePreparationError as error:
+        if args.public_if_unconfigured and not any(os.environ.get(name) for name in OPERATOR_SOURCE_SETTINGS):
+            report = prepare_public_reference(args.destination_dir)
+        else:
+            report = prepare_reference(client=create_reference_client(),
+                bucket_name=os.environ.get("B2_BUCKET_NAME", ""), destination_dir=args.destination_dir,
+                object_key=os.environ.get("ROWWAD_REFERENCE_OBJECT_KEY", ""),
+                gzip_sha256=os.environ.get("ROWWAD_REFERENCE_GZIP_SHA256", ""))
+    except (ReferencePreparationError, TranslationSourceError) as error:
         print(str(error), file=sys.stderr)
         return 1
     print(json.dumps(report, sort_keys=True))

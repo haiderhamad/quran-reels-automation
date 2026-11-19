@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "data_version": "english_rwwad-v1",
+  "verse_key": "2:35",
+  "arabic": {
+    "source": "quran_foundation_text_uthmani",
+    "normalized_sha256": "dd8567bf588d0aa0b66edca66c09dc3ff02372e23729ae208e06be6e540754d6"
+  },
+  "english": {
+    "translation_key": "english_rwwad",
+    "translation_version": "1.0.19",
+    "normalized_sha256": "c5285a1fffdd4ef00f188aaa2581b3a7d2169aa41caa7b9d51beebf400c3575a"
+  },
+  "tokenization_version": "whitespace_v1",
+  "status": "verified",
+  "reviewed_at": "2026-09-06",
+  "review_note": "Source-bound phrase progression aligned on the dwelling command in Paradise, eating freely therein, and the prohibition of the tree with warning of wrongdoing.",
+  "timing_strategy": "arabic_base_letter_weight_v1",
+  "panels": [
+    {
+      "panel_index": 0,
+      "arabic_word_start": 0,
+      "arabic_word_end": 6,
+      "english_token_start": 0,
+      "english_token_end": 11,
+      "arabic_sha256": "99c4260398a6c11ecdd4d0af17ae3f418ff1083c12c3a35180f8b97cb77a0fd0",
+      "english_sha256": "70ce221b4cc90ed983d4f4e168d9e51ab0ba07eafbbc00007fe8099751523c19"
+    },
+    {
+      "panel_index": 1,
+      "arabic_word_start": 6,
+      "arabic_word_end": 11,
+      "english_token_start": 11,
+      "english_token_end": 18,
+      "arabic_sha256": "e1a4b1ce21ae4457c1961ebd96201107aa8de553f41c6c2b16c8ab11d309bc19",
+      "english_sha256": "e39b815d1cd46ae0908434396a709d1e08fb4e47d486c6b6746accbfa85692ef"
+    },
+    {
+      "panel_index": 2,
+      "arabic_word_start": 11,
+      "arabic_word_end": 18,
+      "english_token_start": 18,
+      "english_token_end": 32,
+      "arabic_sha256": "f908acc48e7aabc2837a8e77da426837ff258d9ba1fedf9dde97c4f35ec0e1fd",
+      "english_sha256": "8a6ab4d55a3fd832b927691dff75b8a36874e09a2e8016421c103a3128b80326"
+    }
+  ]
+}

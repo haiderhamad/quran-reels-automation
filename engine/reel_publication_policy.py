@@ -15,6 +15,15 @@ from engine.production_authorization import (
 TRANSLATION_HASH_FIELDS = {"en": "english_source_hash", "de": "german_source_hash"}
 
 
+def is_unverified_alignment_preview(subtitle: Mapping[str, Any]) -> bool:
+    """Recognize explicit preview evidence, including partially saved provenance."""
+    return (
+        subtitle.get("subtitle_mode") == "UNVERIFIED_ALIGNMENT_PREVIEW"
+        or subtitle.get("alignment_status") == "unverified"
+        or subtitle.get("alignment_data_version") == "english_german_rwwad-candidate-v1"
+    )
+
+
 @lru_cache(maxsize=1)
 def _trusted_quran():
     from engine.quran import fetch_quran_data, validate_quran_source_for_run
@@ -113,6 +122,8 @@ def require_record_eligible(
             or len(set(configured_languages)) != len(configured_languages)):
         raise EditorialPolicyError("THEME_POLICY_REJECTED: invalid translation evidence")
     for caption, subtitle in zip(*groups):
+        if is_unverified_alignment_preview(subtitle):
+            raise EditorialPolicyError("THEME_POLICY_REJECTED: UNVERIFIED_ALIGNMENT_PREVIEW")
         arabic = caption.get("arabic_text")
         if not isinstance(arabic, str) or not arabic.strip():
             raise EditorialPolicyError("THEME_POLICY_REJECTED: missing source text")
