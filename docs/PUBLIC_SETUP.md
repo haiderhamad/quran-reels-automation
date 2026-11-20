@@ -79,9 +79,17 @@ To select the B2 source, place the verified gzip in your own restricted B2 locat
 
 To check the bilingual 2:35 example without accounts, follow the [local verification steps](../README.md#verify-al-baqarah-235).
 
-The [English record for 2:35](../data/alignments/english_rwwad/v1/002/035.json) and its [German companion](../data/alignments/english_german_rwwad/v1/002/035.json) contain source hashes and token ranges. At runtime the Worker reconstructs the three panels from the validated editions. This editorial review covers the 2:35 subtitle split and timing. Each installation controls its own publication approvals.
+The Worker reconstructs the reviewed panels from source hashes and token ranges. It uses the original Uthmani text, the pinned Rowwad edition and the read-92 recitation. The repository includes these display reviews:
 
-For other verses that need reviewed panels, supply rights-cleared manifests under `alignments/english_rwwad/v1/SSS/AAA.json` in your installation. Quran Foundation restricts storage of regular API content beyond one week and specifies Content Sync for eligible offline resources. Private Git history is persistent storage. Use a rights-cleared source and retention/sync method for your manifests. [Quran Foundation Developer Terms](https://api-docs.quran.com/legal/developer-terms/) Examples for 2:20 and 2:25 use `002/020.json` and `002/025.json`. The public ignore rules exclude this directory. For hosted runners, provision the manifest files into the private checkout after checkout and before the worker starts, using an authenticated read from your own rights-cleared storage. A private deployment may version approved source manifests only when its permissions explicitly cover retention there. Never put source-text manifests in a public pull request.
+| Al-Baqarah | Reviewed subtitles | Panels | Recitation |
+| --- | --- | ---: | ---: |
+| [2:20](../data/alignments/english_rwwad/v1/002/020.json) | Arabic and English | 5 | 33.900 s |
+| [2:25](../data/alignments/english_rwwad/v1/002/025.json) | Arabic and English | 7 | 49.200 s |
+| [2:35](../data/alignments/english_rwwad/v1/002/035.json) | Arabic and English, with a [German companion](../data/alignments/english_german_rwwad/v1/002/035.json) | 3 | 18.560 s |
+
+The English edition is 1.0.19. The German companion uses 1.0.15. Each installation controls its own publication approvals.
+
+For other verses that need reviewed panels, supply rights-cleared manifests under `alignments/english_rwwad/v1/SSS/AAA.json` in your installation. Quran Foundation restricts storage of regular API content beyond one week and specifies Content Sync for eligible offline resources. Private Git history is persistent storage. Use a rights-cleared source and retention/sync method for your manifests. [Quran Foundation Developer Terms](https://api-docs.quran.com/legal/developer-terms/) The public ignore rules exclude this directory. For hosted runners, provision the manifest files into the private checkout after checkout and before the worker starts, using an authenticated read from your own rights-cleared storage. A private deployment may version approved source manifests only when its permissions explicitly cover retention there. Never put source-text manifests in a public pull request.
 
 A reviewer must check the semantic boundaries against the entire authorized Arabic and English ayah, including the treatment of footnotes, the recitation and the planned display. Use the exact schema in `engine/alignments.py`. It records the two source hashes, source/version, tokenization, review date/note, timing strategy and ordered panels with zero-based half-open word/token spans and their exact original slices. The status field records a review that already took place. It cannot substitute for one.
 
@@ -95,6 +103,19 @@ python -m scripts.verify_operator_sources --reference /secure/rowwad-1.0.19.json
 A missing or invalid manifest fails this explicit verification. During production the whole-ayah fallback still has to pass timing and fit. When it cannot, the verse stays pending. A source check alone cannot establish authentic timing, readability, final video safety, posting rights or verified delivery.
 
 The private database review registry governs joining reviewed multi-ayah ranges. It starts empty. For an actual review, preserve the exact bounds, date and a `private-owner-` reference to evidence held by that installation. The service role has read-only access to the registry. An ambiguous delivery or failed source check must not advance the cycle.
+
+### Review a proposal or render the approved panels locally
+
+Use the [local Python and FFmpeg setup](../README.md#verify-al-baqarah-235). From the repository root, run either command:
+
+```sh
+python -m scripts.propose_alignment --verse 2:25
+python -m scripts.generate_local_review_reel --verse 2:20 --output ./outputs/review-2-20.mp4
+```
+
+The first command prints a heuristic proposal for human review. Its JSON includes source text and belongs outside public Git history. The second renders the existing reviewed Arabic and English panels against a plain background, with the read-92 recitation and 36 px footnote style. Use `--verse 2:25` and a new output filename for the seven-panel review. Open the resulting MP4 locally to check transitions, footnotes and audio.
+
+Both tools use public sources. The renderer verifies the Al-Baqarah recording against the reviewed SHA-256. If the provider serves a different recording, use `--audio /path/to/original-read-92-baqarah.mp3` with an authorized copy of the matching original. The same hash check applies. The output path must be new. The commands run independently of Buffer, the scheduler and publication approvals.
 
 ### Record a reviewed multi-ayah passage
 

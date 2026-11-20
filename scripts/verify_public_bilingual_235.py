@@ -5,9 +5,8 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from urllib.request import Request, urlopen
 
-from engine import audio, quran, translation
+from engine import audio, translation
 from engine.alignments import SUBTITLE_MODE_VERIFIED_PHRASE_PROGRESSIVE
 from engine.config import DurationConfig, VerseSelectionLimits
 from engine.main import RunRequest, _build_subtitle_preflight_request
@@ -15,9 +14,7 @@ from engine.renderer import RenderConfig, _build_resolved_phrase_panels, preflig
 from engine.subtitles import SubtitleConfig
 from engine.verses import select_owner_v1_ayah_candidate
 from scripts.fetch_fonts import install_bundled_fonts
-
-
-PUBLIC_QURAN_API = "https://api.quran.com/api/v4"
+from scripts.review_sources import fetch_public_quran
 
 
 def verify() -> dict:
@@ -30,14 +27,7 @@ def verify() -> dict:
         if tuple(s.source.version for s in sources.values()) != ("1.0.19", "1.0.15"):
             raise ValueError("Unexpected Rowwad edition.")
 
-        request = Request(f"{PUBLIC_QURAN_API}/quran/verses/uthmani",
-                          headers={"Accept": "application/json", "User-Agent": audio.DEFAULT_USER_AGENT})
-        with urlopen(request, timeout=30, context=quran._build_ssl_context()) as response:
-            # Only this local check uses the unauthenticated public text endpoint.
-            raw = response.read(4_000_001)
-        if len(raw) > 4_000_000:
-            raise ValueError("Unexpected size for the public Uthmani source.")
-        corpus = quran.parse_quran_payload(raw, qf_env="public-verification", api_base_url=PUBLIC_QURAN_API)
+        corpus = fetch_public_quran()
         timing = audio.fetch_surah_timing(2).get_ayah_timing(35)
         if (timing.start_ms, timing.end_ms) != (707420, 725980):
             raise ValueError("The read-92 interval differs from the reviewed recitation.")

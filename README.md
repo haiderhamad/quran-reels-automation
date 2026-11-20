@@ -78,6 +78,8 @@ python -m scripts.verify_public_bilingual_235
 
 Look for `VERIFIED_PHRASE_PROGRESSIVE` in the JSON report, English Rowwad **1.0.19** and German Rowwad **1.0.15**. The three panels cover 0–6.338, 6.338–10.864 and 10.864–18.560 seconds from the start of the ayah.
 
+To review Al-Baqarah 2:20 or 2:25 on your computer, follow the [local panel review guide](docs/PUBLIC_SETUP.md#review-a-proposal-or-render-the-approved-panels-locally).
+
 ## Run the developer checks
 
 Start in the repository root with the Python environment from [the 2:35 check](#verify-al-baqarah-235) active. The CV fetch downloads three pinned OpenCV models for background screening.

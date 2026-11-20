@@ -1,0 +1,84 @@
+{
+  "schema_version": 2,
+  "data_version": "english_rwwad-v1",
+  "verse_key": "2:25",
+  "arabic": {
+    "source": "quran_foundation_text_uthmani",
+    "normalized_sha256": "9270642e6dfdaa543dc8a53073381ff8eebc63db7bd4344590286ef4668ff0b3"
+  },
+  "english": {
+    "translation_key": "english_rwwad",
+    "translation_version": "1.0.19",
+    "normalized_sha256": "33d6e6da522fc6db6bc6fc45925f1d4c85094ea861bbf541acb8710da2cc6e04"
+  },
+  "tokenization_version": "whitespace_v1",
+  "status": "verified",
+  "reviewed_at": "2026-11-16",
+  "review_note": "The 7 display panels and their weighted timing were reviewed against the Arabic recitation and English Rowwad 1.0.19 with a 36px footnote style.",
+  "timing_strategy": "arabic_base_letter_weight_v1",
+  "panels": [
+    {
+      "panel_index": 0,
+      "arabic_word_start": 0,
+      "arabic_word_end": 5,
+      "english_token_start": 0,
+      "english_token_end": 12,
+      "arabic_sha256": "43b5e846d1520b0afaa9c107198683e4807bba1e23036ce851f123aee560ed12",
+      "english_sha256": "05e4ceb1bb278ed036b5117739d78ec9e21a323e54e6bd046a7e1e766e151f27"
+    },
+    {
+      "panel_index": 1,
+      "arabic_word_start": 5,
+      "arabic_word_end": 13,
+      "english_token_start": 12,
+      "english_token_end": 21,
+      "arabic_sha256": "fec35d8b44dfbe78edff5a1b7f69fd6c5513f1c952d2411df6f2c236204acbc7",
+      "english_sha256": "49741b51f929003202477998781d54269bf6683c65b3d3575509bcb06e064bf3"
+    },
+    {
+      "panel_index": 2,
+      "arabic_word_start": 13,
+      "arabic_word_end": 20,
+      "english_token_start": 21,
+      "english_token_end": 32,
+      "arabic_sha256": "8a85f47eec5771d005e19e7a0b6268c896075f6d0b37f2bed29a2e77290b43e8",
+      "english_sha256": "217965669f9ee32b4b571b1fc554f599dbcbf22cf47dcd2d38aa107916330ed2"
+    },
+    {
+      "panel_index": 3,
+      "arabic_word_start": 20,
+      "arabic_word_end": 27,
+      "english_token_start": 32,
+      "english_token_end": 43,
+      "arabic_sha256": "4aea006c0114f82bd26c1d182386e71c64371c4b8b64f2d965a74abcfd6f8307",
+      "english_sha256": "3b2edee05a0be5f079c8a70465389a0ef23c5578baadbb96d4fa417e9e2f8f1f"
+    },
+    {
+      "panel_index": 4,
+      "arabic_word_start": 27,
+      "arabic_word_end": 31,
+      "english_token_start": 43,
+      "english_token_end": 53,
+      "arabic_sha256": "9f2aa8cdccd114ead9839944f8917a05db96efb87537e0984cd79b2505e4f338",
+      "english_sha256": "605e7e21a3e17cbc34986df8317d0be34553c42230bcc19e53481e4e0d05c67f"
+    },
+    {
+      "panel_index": 5,
+      "arabic_word_start": 31,
+      "arabic_word_end": 36,
+      "english_token_start": 53,
+      "english_token_end": 58,
+      "arabic_sha256": "9fd804b667429fb0a5543d67c1b564720f32ef17c0270046fc8b567350fe3c97",
+      "english_sha256": "a3f90a639ba611bde05da82faf3b8662e2d80cf6cb96735697bf776fe54474be"
+    },
+    {
+      "panel_index": 6,
+      "arabic_word_start": 36,
+      "arabic_word_end": 39,
+      "english_token_start": 58,
+      "english_token_end": 64,
+      "arabic_sha256": "063c566eccfbea0ad39523c38a9a8e2cfa36a366c465ce41538407112760b2b4",
+      "english_sha256": "305a31df1e854b0e0cbf2f0d27d1c0ac1b23acef3e1c55a489c0532cf5b0967e"
+    }
+  ]
+}
