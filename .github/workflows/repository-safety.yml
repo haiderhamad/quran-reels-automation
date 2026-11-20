@@ -27,19 +27,8 @@ jobs:
       - name: Install Python regression dependencies
         run: python3 -m pip install -r requirements.txt
 
-      - name: Install final subtitle measurement dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            ffmpeg \
-            libass-dev \
-            fontconfig \
-            fonts-noto-core \
-            fonts-noto-extra \
-            python3-pil
-
-      - name: Verify libass subtitle support
-        run: ffmpeg -filters 2>/dev/null | grep -E "ass|subtitles"
+      - name: Prepare verified native Reel runtime
+        run: bash scripts/setup_reel_runtime.sh
 
       - name: Fetch verified renderer fonts
         run: python3 scripts/fetch_fonts.py --offline

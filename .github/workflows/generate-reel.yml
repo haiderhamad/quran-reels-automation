@@ -97,21 +97,8 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install system dependencies (FFmpeg with libass and fonts)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            ffmpeg \
-            libass-dev \
-            fontconfig \
-            fonts-noto-core \
-            fonts-noto-extra
-
-      - name: Verify FFmpeg capabilities
-        run: |
-          ffmpeg -version
-          echo "Checking for libass filter support..."
-          ffmpeg -filters 2>/dev/null | grep -E "ass|subtitles" || (echo "ERROR: FFmpeg build lacks required ass/subtitles filter" && exit 1)
+      - name: Prepare verified native Reel runtime
+        run: bash scripts/setup_reel_runtime.sh
 
       - name: Install Python dependencies
         run: |
@@ -136,7 +123,7 @@ jobs:
       - name: Fetch CV models and verified typography fonts
         run: |
           python3 scripts/fetch_cv_models.py
-          python3 scripts/fetch_fonts.py
+          python3 scripts/fetch_fonts.py --offline
 
       - name: Validate run semantics
         env:
