@@ -950,7 +950,7 @@ def _select_measured_phrase_plan(
                 (
                     (segment.language, bounds.line_count)
                     for segment, bounds in zip(panel.translations, translation_bounds)
-                    if bounds.line_count > sub_cfg.translation_max_lines
+                    if bounds.line_count > sub_cfg.line_limit_for_translation(segment.language)
                 ),
                 None,
             )
@@ -959,7 +959,7 @@ def _select_measured_phrase_plan(
                 last_fit_error = f"{language} translation renders as {line_count} lines"
                 last_language = language
                 last_font_size = sub_cfg.translation_font_size
-                last_allowed_lines = sub_cfg.translation_max_lines
+                last_allowed_lines = sub_cfg.line_limit_for_translation(language)
                 last_required_lines = line_count
                 last_panel_index = panel.panel_index
                 plan_fits = False

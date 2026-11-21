@@ -35,7 +35,7 @@ from engine.background_pool import (
 )
 from engine.renderer import RenderConfig
 from engine.subtitles import SubtitleConfig
-from engine.layout_config import SURA_HEADER_OFFSET
+from engine.layout_config import TRANSLATION_MAX_LINES, SURA_HEADER_OFFSET
 from engine.publisher import (
     CANONICAL_SURAH_NAMES,
     MetaConfig,
@@ -286,7 +286,7 @@ def build_render_config_from_stored_config(stored_config: Any) -> RenderConfig:
         arabic_font_size=_get("arabic_font_size", 180),
         translation_font_size=_get("translation_font_size", 50),
         arabic_max_lines=_get("arabic_max_lines", 2),
-        translation_max_lines=_get("translation_max_lines", 2),
+        translation_max_lines=_get("translation_max_lines", TRANSLATION_MAX_LINES["en"]),
         arabic_translation_gap_px=arabic_gap,
         translation_stack_gap_px=stack_gap,
         arabic_line_spacing=_get("arabic_line_spacing", 1.15),

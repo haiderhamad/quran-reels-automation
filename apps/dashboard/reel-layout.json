@@ -1,6 +1,7 @@
 {
   "width": 1080,
   "height": 1920,
+  "translationMaxLines": { "en": 3, "de": 4 },
   "safeZone": { "top": 80, "left": 80, "right": 80, "bottom": 120 },
   "suraHeaderOffset": { "min": 0, "max": 60, "step": 5, "default": 50 }
 }

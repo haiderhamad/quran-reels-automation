@@ -11,7 +11,7 @@ are available, so phrases are proportionally timed within each ayah.
 
 from __future__ import annotations
 
-from engine.layout_config import REEL_WIDTH, REEL_HEIGHT, TEXT_SAFE_ZONE, SURA_HEADER_OFFSET, clamp_header_offset, safe_rectangle, sura_header_top
+from engine.layout_config import TRANSLATION_MAX_LINES, REEL_WIDTH, REEL_HEIGHT, TEXT_SAFE_ZONE, SURA_HEADER_OFFSET, clamp_header_offset, safe_rectangle, sura_header_top
 
 import re
 import unicodedata
@@ -163,7 +163,7 @@ class SubtitleConfig:
     arabic_font_size: int = 180
     translation_font_size: int = 50
     arabic_max_lines: int = 2
-    translation_max_lines: int = 2
+    translation_max_lines: int = TRANSLATION_MAX_LINES["en"]
     arabic_translation_gap_px: int = 80
     translation_stack_gap_px: int = 80
     arabic_line_spacing: float = 1.15
@@ -182,6 +182,12 @@ class SubtitleConfig:
     header_backing_intensity: str = HEADER_BACKING_LOW
     ayah_reference_position: str = REF_TOP_HEADER
     subtitle_backing: str = BACKING_SHADOW
+
+    def line_limit_for_translation(self, language: str) -> int:
+        # The historical shared setting now controls only English.
+        if language == "en":
+            return min(self.translation_max_lines, TRANSLATION_MAX_LINES["en"])
+        return TRANSLATION_MAX_LINES[language]
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "sura_header_top_offset", clamp_header_offset(self.sura_header_top_offset))

@@ -166,7 +166,10 @@ const StoredConfigObjectSchema = z
     arabic_font_size: z.number().int().min(72).max(180).default(180),
     translation_font_size: z.union([z.literal(50), z.literal(40), z.literal(30)]).default(50),
     arabic_max_lines: z.number().int().min(1).max(5).default(2),
-    translation_max_lines: z.number().int().min(1).max(5).default(2),
+    // Older installations accepted 4 or 5 for this formerly shared limit.
+    translation_max_lines: z.number().int().min(1).max(5)
+      .transform(value => Math.min(value, reelLayout.translationMaxLines.en))
+      .default(reelLayout.translationMaxLines.en),
     arabic_translation_gap_px: z.union([z.literal(80), z.literal(100), z.literal(120)]).default(80),
     arabic_translation_gap_version: z.literal(3).default(3),
     translation_stack_gap_px: z.union([z.literal(80), z.literal(100), z.literal(120)]).default(80),

@@ -74,6 +74,25 @@ describe("static renderer workspace", () => {
     }
   });
 
+  it.each([
+    { languages: ["de"], lines: [4], englishLimit: 1, overflow: false },
+    { languages: ["de"], lines: [5], englishLimit: 3, overflow: true },
+    { languages: ["en"], lines: [4], englishLimit: 3, overflow: true },
+    { languages: ["en", "de"], lines: [3, 4], englishLimit: 3, overflow: false },
+    { languages: ["en", "de"], lines: [3, 5], englishLimit: 3, overflow: true },
+    { languages: ["en", "de"], lines: [4, 3], englishLimit: 3, overflow: true },
+    { languages: ["en", "de"], lines: [3, 4], englishLimit: 2, overflow: true },
+  ])("checks $languages with $lines measured lines and an English limit of $englishLimit", ({ languages, lines, englishLimit, overflow }) => {
+    const config = StoredConfigSchema.parse({ translation_languages: languages, translation_max_lines: englishLimit });
+    const { layout } = selectPreview(manifest, config, "1-line");
+    const glyphs = { ...manifest.glyphs };
+    lines.forEach((count, index) => {
+      const key = layout.glyphs[index + 1];
+      glyphs[key] = { ...glyphs[key], visual_line_ranges: Array.from({ length: count }, (_, n) => [n, n]) };
+    });
+    expect(selectPreview({ ...manifest, glyphs }, config, "1-line").exceedsLines).toBe(overflow);
+  });
+
   it("reports overflow without truncating or changing production max lines", () => {
     const preview = selectPreview(manifest, defaults, "3-line");
     expect(preview.exceedsLines).toBe(true);

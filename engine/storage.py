@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from engine.layout_config import SURA_HEADER_OFFSET, clamp_header_offset
+from engine.layout_config import TRANSLATION_MAX_LINES, SURA_HEADER_OFFSET, clamp_header_offset
 
 import datetime
 import json
@@ -163,7 +163,7 @@ class StoredConfig:
     arabic_font_size: int = 180
     translation_font_size: int = 50
     arabic_max_lines: int = 2
-    translation_max_lines: int = 2
+    translation_max_lines: int = TRANSLATION_MAX_LINES["en"]
     arabic_translation_gap_px: int = 80
     arabic_translation_gap_version: int = ARABIC_TRANSLATION_GAP_VERSION
     translation_stack_gap_px: int = 80
@@ -694,7 +694,7 @@ def stored_config_from_dict(data: Mapping[str, Any]) -> StoredConfig:
         arabic_font_size=int(data.get("arabic_font_size", 180)),
         translation_font_size=migrated_font_size,
         arabic_max_lines=int(data.get("arabic_max_lines", 2)),
-        translation_max_lines=int(data.get("translation_max_lines", 2)),
+        translation_max_lines=int(data.get("translation_max_lines", TRANSLATION_MAX_LINES["en"])),
         arabic_translation_gap_px=stored_arabic_translation_gap(data),
         translation_stack_gap_px=stored_translation_stack_gap(data),
         arabic_line_spacing=float(data.get("arabic_line_spacing", 1.15)),

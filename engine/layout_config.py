@@ -8,6 +8,7 @@ REEL_WIDTH = LAYOUT['width']
 REEL_HEIGHT = LAYOUT['height']
 TEXT_SAFE_ZONE = LAYOUT['safeZone']
 SURA_HEADER_OFFSET = LAYOUT['suraHeaderOffset']
+TRANSLATION_MAX_LINES = LAYOUT['translationMaxLines']
 
 
 def safe_rectangle(width=REEL_WIDTH, height=REEL_HEIGHT):

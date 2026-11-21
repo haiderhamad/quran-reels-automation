@@ -52,7 +52,7 @@ After cloning, open `docs/diagrams/reel-workflow-animated.html` in a browser to 
 
 [![Operations Overview showing automation paused, Facebook and Instagram connection status, and the controls for a private test, publishing and background discovery.](docs/images/dashboard-overview.webp)](docs/images/dashboard-overview.webp)
 
-**Settings → Subtitle & Visual Style** controls languages, type size and spacing. Here, English and German are selected alongside Arabic.
+**Settings → Subtitle & Visual Style** controls languages, type size and spacing. English allows up to three lines per panel, or a lower limit you select. German allows up to four. The preview and Worker use these limits and the Worker also checks available screen space.
 
 [![Settings showing the English and German selection, both spacing controls, subtitle mode and the vertical studio preview.](docs/images/dashboard-subtitle-settings.webp)](docs/images/dashboard-subtitle-settings.webp)
 

@@ -62,7 +62,10 @@ export function selectPreview(manifest: PreviewCatalogManifest, config: StoredCo
   if (!layout || !header || !sample) throw new Error("This layout is missing from the static preview. Regenerate the catalog.");
   const glyphs = layout.glyphs.map(key => manifest.glyphs[key]);
   if (glyphs.some(glyph => !glyph)) throw new Error("Static preview text assets are incomplete.");
-  const exceedsLines = glyphs.some((glyph, i) => glyph.visual_line_ranges.length > (i === 0 ? config.arabic_max_lines : config.translation_max_lines));
+  const lineLimits = [config.arabic_max_lines, ...config.translation_languages.map(language =>
+    language === "de" ? reelLayout.translationMaxLines.de : config.translation_max_lines
+  )];
+  const exceedsLines = glyphs.some((glyph, index) => glyph.visual_line_ranges.length > lineLimits[index]);
   return { key, layout, header, sample, glyphs, exceedsLines };
 }
 
@@ -94,7 +97,7 @@ export const DEFAULT_PREVIEW_STYLE: Partial<StoredConfig> = {
   arabic_font_size: 180,
   translation_font_size: 50,
   arabic_max_lines: 2,
-  translation_max_lines: 2,
+  translation_max_lines: reelLayout.translationMaxLines.en,
   arabic_translation_gap_px: 80,
   arabic_translation_gap_version: 3,
   translation_stack_gap_px: 80,

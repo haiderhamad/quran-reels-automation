@@ -566,15 +566,16 @@ export function SettingsForm({
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="tr-max-lines">Translation Max Lines</label>
+                <label className="form-label" htmlFor="tr-max-lines">English Max Lines</label>
                 <select
                   id="tr-max-lines"
                   value={config.translation_max_lines}
                   onChange={(e) => setConfig({ ...config, translation_max_lines: parseInt(e.target.value) })}
                   className="form-input"
                 >
-                  {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                  {Array.from({ length: reelLayout.translationMaxLines.en }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
+                <p className="form-hint">German allows up to {reelLayout.translationMaxLines.de} lines.</p>
               </div>
             </div>
 
