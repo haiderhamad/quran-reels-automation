@@ -181,7 +181,14 @@ class OwnerV1JobModeTests(TestCase):
                     grants.assert_not_called()
 
     def test_publish_without_meta_credentials_still_rejects_wrong_generated_ayah(self):
+        from engine.storage import HistoricalBackgroundUse
         store = MagicMock()
+        historical = (HistoricalBackgroundUse("pixabay", "331748", "2026-11-18T09:00:00Z"),
+                      HistoricalBackgroundUse("pexels", "77", "2020-01-01T09:00:00Z"))
+        store.get_recent_content_history.return_value = ({"pexels_video_ids": [42]},)
+        store.get_production_background_usage.return_value = historical
+        pool = MagicMock()
+        pool.list_usage.return_value = ()
         store.load_config.return_value = StoredConfig(
             reciter_reuse_confirmed=True, facebook_enabled=True, instagram_enabled=True,
         )
@@ -194,12 +201,15 @@ class OwnerV1JobModeTests(TestCase):
                              'BUFFER_PUBLISHING_ENABLED', 'BUFFER_FACEBOOK_ENABLED', 'BUFFER_INSTAGRAM_ENABLED'), 'true')
         env.update(STATE_AUTHORITY='supabase', QURAN_REELS_V1_MODE='publish', PUBLISHER_BACKEND='buffer')
         with (patch('engine.job.get_active_state_store', return_value=store),
+              patch('engine.job.get_background_pool_repository', return_value=pool),
               patch('engine.job.generate_reel') as render, patch('engine.job.upload_reel') as upload,
               patch('engine.job.BufferClient') as buffer):
             result = run_job(JobRequest(slot='manual-production', run_kind='manual_production'),
                              env=env, b2_config=MagicMock(), client=MagicMock(), now=self.fixed_date())
         self.assertEqual(result.failure_reason, 'OWNER_V1_GENERATED_AYAH_MISMATCH')
         render.assert_called_once()
+        self.assertEqual(render.call_args.args[0].background_usage_events, historical)
+        self.assertEqual(render.call_args.args[0].recent_pexels_video_ids, (42,))
         upload.assert_not_called()
         buffer.assert_not_called()
         store.claim_calm_reels_v1_next_ayah.assert_not_called()
@@ -302,6 +312,12 @@ class OwnerV1JobModeTests(TestCase):
                 surah_number=1, first_ayah=1, last_ayah=1,
                 duration_seconds=16.0, output_path="/tmp/owner-v1-mocked.mp4",
                 provenance={
+                    "background_source_mode": "VERIFIED_POOL",
+                    "verified_backgrounds": [{
+                        "provider": "pixabay", "provider_asset_id": "331748",
+                        "provider_variant_id": "large:3840x2160",
+                        "verified_record_id": "pixabay:331748:large:3840x2160:hash:policy",
+                    }],
                     "owner_v1": {
                         "catalog_id": "calm-reels-editorial-shortlist-v1",
                         "ayah_key": req.owner_ayah_key,
@@ -343,7 +359,6 @@ class OwnerV1JobModeTests(TestCase):
             patch("engine.job.generate_reel", side_effect=fake_generate),
             patch("engine.job.upload_reel", return_value="media/owner-v1.mp4"),
             patch("engine.job.ensure_public_media_delivery", side_effect=fake_public_url),
-            patch("engine.job._record_production_pool_usage"),
             patch("engine.job.load_buffer_config_from_env"),
             patch("engine.job.BufferClient") as buffer_cls,
             patch("engine.job.load_meta_config_from_env", side_effect=AssertionError("No Meta credentials in Buffer-only mode")) as meta_config,
@@ -367,6 +382,11 @@ class OwnerV1JobModeTests(TestCase):
             self.assertEqual(poll_delay.call_count, 3)
             meta_config.assert_not_called()
 
+        pool.save_usage.assert_called_once()
+        usage = pool.save_usage.call_args.args[0]
+        self.assertEqual((usage.run_id, usage.provider, usage.provider_asset_id),
+                         ("owner-mock-first", "pixabay", "331748"))
+        self.assertEqual(usage.used_at, store.complete_run_record.call_args_list[0].args[0].completed_at)
         self.assertEqual(result.status, "SUCCESS")
         self.assertEqual((result.facebook_status, result.instagram_status),
                          ("ACCEPTED", "ACCEPTED"))

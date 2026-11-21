@@ -737,10 +737,7 @@ def run_job(
     gen_res: Optional[RunResult] = None
     utc_now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-    # Use the same authoritative state adapter for pool evidence and usage.
-    # In particular, never reconstruct Supabase usage from legacy
-    # ``pexels_video_ids``: verified pool provenance carries the provider,
-    # selected variant, record identity, and exact source hash.
+    # Pool events and saved render history come from the active state authority.
     pool_repository = get_background_pool_repository(
         env,
         b2_client=s3_client,
@@ -750,7 +747,6 @@ def run_job(
 
     # 7. Execute Reel Generation pipeline (if not reusing existing generation)
     if not reused_generation:
-        # Derive recent content history from active state store
         try:
             recent_history = state_store.get_recent_content_history(last_n_runs=30)
             recent_ranges = tuple(
@@ -761,12 +757,16 @@ def run_job(
                 and item.get("last_ayah") is not None
             )
             recent_pexels_ids = tuple(sorted({
-                int(video_id)
-                for item in recent_history
-                for video_id in item.get("pexels_video_ids", ())
+                int(video_id) for item in recent_history for video_id in item.get("pexels_video_ids", ())
             }))
         except Exception:
             recent_ranges, recent_pexels_ids = (), ()
+
+        try:
+            historical_usage = state_store.get_production_background_usage()
+        except Exception as err:
+            LOGGER.warning("[BACKGROUND] run_history_unavailable error_type=%s", type(err).__name__)
+            historical_usage = ()
 
         # Background-pool metadata failures degrade to the existing fully
         # scanned live-search path; they never disable the final Reel scan.
@@ -777,7 +777,7 @@ def run_job(
                 for record in pool_repository.list_verified()
                 if record.record_id not in stale_record_ids
             )
-            background_usage_events = pool_repository.list_usage()
+            background_usage_events = (*pool_repository.list_usage(), *historical_usage)
         except Exception as pool_load_err:
             LOGGER.warning(
                 "[BACKGROUND] pool_metadata_unavailable fallback=LIVE_SEARCH_FALLBACK error_type=%s",
@@ -796,8 +796,11 @@ def run_job(
                 if authority == "b2":
                     bg_history = load_background_history(s3_client, config_b2)
                     all_used_pids: set[int] = set(recent_pexels_ids)
-                    for p_tuple in bg_history.ayah_pexels_ids.values():
-                        all_used_pids.update(p_tuple)
+                    # Older coverage files stored both providers under a Pexels-only field.
+                    known_pixabay = {int(use.provider_asset_id) for use in historical_usage
+                                    if use.provider == "pixabay"}
+                    for ids in bg_history.ayah_pexels_ids.values():
+                        all_used_pids.update(asset_id for asset_id in ids if asset_id not in known_pixabay)
                     historical_pexels_ids = tuple(sorted(all_used_pids))
                 else:
                     historical_pexels_ids = tuple(sorted(set(recent_pexels_ids)))
@@ -1219,14 +1222,12 @@ def run_job(
                     generation_result=gen_res,
                     failure_reason=f"Failed to persist Quran coverage checkpoint: {cov_save_err}",
                 )
-            try:
-                _record_production_pool_usage(
-                    pool_repository,
-                    active_record,
-                    used_at=completed_gen_at,
-                )
-            except Exception as usage_err:
-                LOGGER.warning("[BACKGROUND] pool_usage_record_failed error=%s", usage_err)
+        # Pool usage belongs to the completed render, independently of verse
+        # coverage and any later publication outcome.
+        try:
+            _record_production_pool_usage(pool_repository, active_record, used_at=completed_gen_at)
+        except Exception as usage_err:
+            LOGGER.warning("[BACKGROUND] pool_usage_record_failed error=%s", usage_err)
 
     elif reused_generation and request.run_kind in ("scheduled", "manual_production") and active_record is not None:
         try:
@@ -1257,7 +1258,9 @@ def run_job(
                     pexels_video_ids=active_record.pexels_video_ids,
                     now=now,
                 )
-            _record_production_pool_usage(pool_repository, active_record, used_at=pool_utc_now_iso())
+            _record_production_pool_usage(
+                pool_repository, active_record, used_at=active_record.completed_at or active_record.started_at,
+            )
         except Exception as checkpoint_err:
             return JobResult(
                 status="FAILED",

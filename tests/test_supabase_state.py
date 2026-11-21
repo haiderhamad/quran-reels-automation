@@ -44,6 +44,55 @@ class SupabaseStateTests(unittest.TestCase):
         self.key = "server-secret-fixture"
         self.store = SupabaseStateStore(SupabaseConfig("https://project.supabase.co", self.key), self.session)
 
+    def test_recent_background_ids_are_only_pexels_from_production(self):
+        from dataclasses import replace
+        run = RunRecord(
+            run_id="r1", date="2026-11-18", slot="morning", status="SUCCESS",
+            started_at="2026-11-18T09:00:00Z", media_key="media/1.mp4", surah_number=2,
+            pexels_video_ids=(11, 12), provenance={"verified_backgrounds": [
+                {"provider": "pixabay", "provider_asset_id": "11"},
+                {"provider": "pexels", "provider_asset_id": "12"},
+            ]},
+        )
+        qa = replace(run, slot="test", run_kind="test", schedule_slot_id=None)
+        with patch.object(self.store, "list_run_records", return_value=(run, qa)) as read:
+            history = self.store.get_recent_content_history(last_n_runs=30)
+        read.assert_called_once_with(limit=30)
+        self.assertEqual([row["pexels_video_ids"] for row in history], [[12], []])
+
+    def test_background_history_reads_all_production_pages_with_provider_identity(self):
+        # Simulate a server capped to one row per response, even for larger requests.
+        day = "2026-11-18T09:00:00+00:00"
+        rows = [
+            {"run_id": "a", "completed_at": day, "surah_number": 2, "first_ayah": 25,
+             "verified_backgrounds": [{"provider": "pixabay", "provider_asset_id": "77"}],
+             "pexels_video_ids": [77]},
+            {"run_id": "b", "completed_at": "2026-11-20T09:00:00+00:00",
+             "pexels_videos": [{"provider": "pexels", "provider_asset_id": "77"},
+                              {"provider": "pixabay", "provider_asset_id": "88"}],
+             "pexels_video_ids": [77, 88]},
+            {"run_id": "c", "completed_at": None, "started_at": "2026-11-21T09:00:00+00:00",
+             "pexels_video_ids": [42]},
+            {"run_id": "d", "completed_at": "invalid", "pexels_video_ids": [999]},
+        ]
+        self.session.responses = [Response([row]) for row in rows] + [Response([])]
+        actual = [(use.provider, use.provider_asset_id, use.used_at)
+                  for use in self.store.get_production_background_usage()]
+        self.assertEqual(actual, [
+            ("pixabay", "77", day),
+            ("pexels", "77", rows[1]["completed_at"]),
+            ("pixabay", "88", rows[1]["completed_at"]),
+            ("pexels", "42", rows[2]["started_at"]),
+        ])
+        for page, (method, _, kwargs) in enumerate(self.session.calls):
+            params = kwargs["params"]
+            self.assertEqual(method, "GET")
+            self.assertEqual(params["run_kind"], "in.(scheduled,manual_production)")
+            self.assertEqual(params["media_key"], "not.is.null")
+            self.assertEqual(params["order"], "run_id.asc")
+            if page:
+                self.assertEqual(params["run_id"], "gt." + rows[page - 1]["run_id"])
+
     def test_config_is_server_only_and_upserts_json(self):
         self.session.responses.append(Response([]))
         self.store.save_config(StoredConfig())
@@ -276,6 +325,24 @@ class SupabaseStateTests(unittest.TestCase):
         self.session.responses.append(Response({"status": "PENDING"}))
         with self.assertRaisesRegex(SupabaseStateError, "malformed page"):
             self.store.background_candidate_summary()
+
+    def test_pool_usage_keeps_events_beyond_the_first_page(self):
+        from engine.background_pool import SupabaseBackgroundPoolRepository
+
+        use = {"run_id": "run-1", "provider": "pexels", "provider_asset_id": "5",
+               "provider_variant_id": "1", "verified_record_id": "record-1",
+               "used_at": "2026-11-16T12:00:00Z", "reel_duration_seconds": 30}
+        final_use = {**use, "run_id": "run-501", "provider": "pixabay"}
+        self.session.responses.extend((
+            Response([{"value": {**use, "run_id": f"run-{i}"}} for i in range(250)]),
+            Response([{"value": {**use, "run_id": f"run-{i}"}} for i in range(250, 500)]),
+            Response([{"value": final_use}]), Response([]),
+        ))
+        events = SupabaseBackgroundPoolRepository(self.store).list_usage()
+        self.assertEqual(len(events), 501)
+        self.assertEqual(events[-1].provider, "pixabay")
+        self.assertEqual([call[2]["params"]["offset"] for call in self.session.calls],
+                         ["0", "250", "500", "501"])
 
     def test_other_background_reads_use_complete_pagination(self):
         asset = {"provider": "pixabay", "provider_asset_id": "1", "provider_variant_id": "v1", "policy_fingerprint": "f" * 64, "content_sha256": "a" * 64, "value": {}}

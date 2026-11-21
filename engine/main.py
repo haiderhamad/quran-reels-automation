@@ -79,6 +79,7 @@ from engine.renderer import (
     render_reel,
 )
 from engine.safety import SafetyConfig, SafetyScanResult, scan_video
+from engine.storage import HistoricalBackgroundUse
 from engine.translation import (
     EXPECTED_TRANSLATION_VERSIONS,
     SUPPORTED_TRANSLATION_SOURCES,
@@ -170,7 +171,7 @@ class RunRequest:
     max_background_source_file_size_bytes: int = DEFAULT_MAX_SOURCE_FILE_SIZE_BYTES
     max_render_attempts: int = 4
     verified_background_records: tuple[VerifiedBackgroundRecord, ...] = ()
-    background_usage_events: tuple[BackgroundUsageEvent, ...] = ()
+    background_usage_events: tuple[BackgroundUsageEvent | HistoricalBackgroundUse, ...] = ()
     max_surah_attempts: int = 15
     dry_run: bool = False
     requested_ayah_range: Optional[tuple[int, int, int]] = None
@@ -2077,7 +2078,7 @@ def generate_reel(
             f"[STAGE] pipeline completed seconds={monotonic() - pipeline_started_at:.3f}"
         )
 
-        # Only clips in the successful render plan can generate reuse warnings.
+        # The successful render plan determines both usage history and warnings.
         selected_indices = {plan.clip_index for plan in getattr(render_res, "plans", ())}
         actual_pool_records = tuple(
             record for index, record in enumerate(selected_pool_records)
@@ -2103,7 +2104,8 @@ def generate_reel(
                 "videographer_url": getattr(cand, "videographer_url", ""),
                 "page_url": getattr(cand, "pexels_page_url", getattr(cand, "page_url", "")),
             }
-            for cand in selected_safe_candidates
+            for index, cand in enumerate(selected_safe_candidates)
+            if not selected_indices or index in selected_indices
         ]
         subtitle_evidence = []
         for ayah in render_ayahs:
@@ -2202,7 +2204,7 @@ def generate_reel(
                     "verified_content_sha256": record.content_sha256,
                     "safety_policy_fingerprint": record.safety.policy_fingerprint,
                 }
-                for record in selected_pool_records
+                for record in actual_pool_records
             ],
         }
 
@@ -2214,7 +2216,10 @@ def generate_reel(
             last_ayah=last_ayah,
             duration_seconds=render_res.duration_seconds,
             output_path=final_output_path,
-            pexels_video_ids=tuple(bg.pexels_video_id for bg in selected_render_backgrounds),
+            pexels_video_ids=tuple(
+                bg.pexels_video_id for index, bg in enumerate(selected_render_backgrounds)
+                if not selected_indices or index in selected_indices
+            ),
             final_safety_result=final_safety,
             stages_completed=tuple(stages),
             provenance=provenance,

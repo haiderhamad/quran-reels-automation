@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from dataclasses import asdict, replace
 from pathlib import Path
+from unittest.mock import patch
 
 from engine.background_pool import (
     ANIMAL_POLICY,
@@ -99,6 +100,25 @@ class TestFreshAssetSelection(unittest.TestCase):
         return replace(record, render_robustness={
             "fixture_config_fingerprint": "render-test", "failed_evaluation_rate": rate,
         })
+
+    def test_verified_rotation_combines_saved_usage_and_older_render_history(self):
+        from engine.storage import historical_background_usage
+
+        pexels = verified(5)
+        pixabay = replace(pexels, provider="pixabay", provider_variant_id="large")
+        fresh = verified(9)
+        history = historical_background_usage({
+            "completed_at": "2026-08-16T10:00:00Z",
+            "verified_backgrounds": [{"provider": "pixabay", "provider_asset_id": "5"}],
+            "pexels_video_ids": [5],
+        })
+        uses = (*history, self.event(pexels, day=19))
+        clips = (pexels, pixabay, fresh)
+        self.assertEqual(self.select(clips, uses), (fresh, pixabay, pexels))
+
+        # Once all clips have been used, a new use must update the rotation.
+        uses += (self.event(fresh, day=20), self.event(pixabay, day=21))
+        self.assertEqual(self.select(clips, uses), (pexels, fresh, pixabay))
 
     def test_lru_compares_instants_across_timezone_offsets(self):
         first, second = verified(1), verified(2)
@@ -407,6 +427,44 @@ class TestBackgroundPoolModel(unittest.TestCase):
         ops = repo_sb.operation_counts()
         self.assertEqual(ops, {"list_operations": 0, "metadata_reads": 0, "writes": 0})
 
+    def test_runtime_pool_reads_verified_and_stale_evidence_beyond_first_page(self):
+        store = SupabaseStateStore(SupabaseConfig("https://example.invalid", "fixture"))
+        repo = SupabaseBackgroundPoolRepository(store)
+        final = verified(501)
+        asset_order = "provider.asc,provider_asset_id.asc,provider_variant_id.asc,policy_fingerprint.asc,content_sha256.asc"
+        stale_asset = {"provider": "pexels", "provider_asset_id": "501", "provider_variant_id": "10",
+                       "content_sha256": final.content_sha256,
+                       "policy_fingerprint": final.safety.policy_fingerprint}
+        requests = []
+
+        def read(method, table, *, params):
+            self.assertEqual(method, "GET")
+            offset = int(params.get("offset", 0))
+            requests.append((table, offset, params.get("order")))
+            if table == "background_events":
+                self.assertEqual(params["event_type"], "eq.stale")
+                rows = [{"value": {}}, {"value": {}}, {"value": {"verified_record_id": "stale-by-event"}}]
+            elif params.get("status") == "eq.stale":
+                rows = [dict(stale_asset, provider_asset_id="1"),
+                        dict(stale_asset, provider_asset_id="2"), stale_asset]
+            else:
+                self.assertNotIn("status", params)  # Builder reconciliation needs all statuses.
+                rows = [{"value": {}}, {"value": {}}, {"value": asdict(final)}]
+            return rows[offset:offset + 2]  # Simulate a server cap below the requested limit.
+
+        with patch.object(store, "_request", side_effect=read):
+            verified_records = repo.list_verified()
+            stale_ids = repo.stale_record_ids()
+        self.assertEqual(verified_records, (final,))
+        self.assertIn(final.record_id, stale_ids)
+        self.assertIn("stale-by-event", stale_ids)
+        self.assertEqual(requests, [
+            (table, offset, order)
+            for table, order in (("background_assets", asset_order), ("background_assets", asset_order),
+                                 ("background_events", "event_id.asc"))
+            for offset in (0, 2, 3)
+        ])
+
     def test_supabase_background_pool_repository_crud_and_reconciliation(self):
         class MockResponse:
             def __init__(self, payload, ok=True, status_code=200):
@@ -458,7 +516,7 @@ class TestBackgroundPoolModel(unittest.TestCase):
 
         # 3. reconcile_pool_state
         # list_verified -> GET background_assets
-        session.responses.append(MockResponse([{"value": asdict(rec)}]))
+        session.responses.extend((MockResponse([{"value": asdict(rec)}]), MockResponse([])))
         # stale_record_ids -> GET background_assets (status=stale) + GET background_events (event_type=stale)
         session.responses.append(MockResponse([]))
         session.responses.append(MockResponse([]))

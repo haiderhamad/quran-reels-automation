@@ -15,6 +15,8 @@ from engine.storage import (
     B2Config,
     CoverageState,
     RunRecord,
+    HistoricalBackgroundUse,
+    background_usage_for_run,
     StorageError,
     StoredConfig,
     create_b2_client,
@@ -90,6 +92,7 @@ class StateStore(Protocol):
     def list_successful_production_runs(
         self, year: int, month: int
     ) -> Sequence[RunRecord]: ...
+    def get_production_background_usage(self) -> Sequence[HistoricalBackgroundUse]: ...
     def get_recent_content_history(
         self, last_n_runs: int = 30
     ) -> Sequence[dict[str, Any]]: ...
@@ -202,6 +205,10 @@ class B2StateStore:
                 ):
                     res.append(r)
         return tuple(sorted(res, key=lambda x: x.completed_at or ""))
+
+    def get_production_background_usage(self) -> Sequence[HistoricalBackgroundUse]:
+        runs = b2_list_recent_runs(self.client, self.b2_config, limit=None)
+        return tuple(use for run in runs for use in background_usage_for_run(run))
 
     def get_recent_content_history(
         self, last_n_runs: int = 30

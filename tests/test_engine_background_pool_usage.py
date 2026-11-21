@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
+from unittest.mock import patch
+
+from engine.background_pool import SupabaseBackgroundPoolRepository
+from engine.supabase_state import SupabaseConfig, SupabaseStateStore
 
 from engine.job import _record_production_pool_usage
 from engine.storage import RunRecord
@@ -34,6 +39,27 @@ def record(run_kind: str, mode: str = "VERIFIED_POOL") -> RunRecord:
 
 
 class TestBackgroundPoolUsageCheckpoint(unittest.TestCase):
+    def test_retry_preserves_original_usage_and_other_runs_are_distinct(self):
+        store = SupabaseStateStore(SupabaseConfig("https://example.invalid", "fixture"))
+        repo = SupabaseBackgroundPoolRepository(store)
+        completed = "2026-08-26T01:00:00+00:00"
+        run = replace(record("scheduled"), completed_at=completed, provenance={
+            "background_source_mode": "VERIFIED_POOL",
+            "verified_backgrounds": [{
+                "provider": "pixabay", "provider_asset_id": "123",
+                "provider_variant_id": "large:1920x1080",
+                "verified_record_id": "pixabay:123:large:1920x1080:hash:policy",
+            }],
+        })
+        with patch.object(store, "_request") as write:
+            for item in (run, run, replace(run, run_id="another-run")):
+                _record_production_pool_usage(repo, item, used_at=completed)
+        first, replay, other = [call.kwargs["payload"] for call in write.call_args_list]
+        self.assertEqual(first, replay)
+        self.assertNotEqual(first["event_id"], other["event_id"])
+        self.assertEqual(first["occurred_at"], completed)
+        self.assertEqual(first["fingerprint"], "hash")
+
     def test_test_mode_never_records_production_usage(self):
         repo = UsageRepo()
         _record_production_pool_usage(repo, record("test"), used_at="2026-08-26T01:00:00+00:00")

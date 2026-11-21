@@ -26,6 +26,9 @@ from engine.storage import (
     StoredConfig,
     stored_config_from_dict,
     run_record_from_dict,
+    HistoricalBackgroundUse,
+    historical_background_usage,
+    recent_content_history_entries,
 )
 
 
@@ -203,6 +206,7 @@ class SupabaseStateStore:
         *,
         order: str,
         page_size: int = SUPABASE_READ_PAGE_SIZE,
+        read_until_empty: bool = False,
     ) -> list[dict[str, Any]]:
         """Read a complete bounded PostgREST collection in stable pages."""
         if page_size < 1 or page_size > SUPABASE_READ_PAGE_SIZE:
@@ -219,9 +223,10 @@ class SupabaseStateStore:
             if any(not isinstance(row, Mapping) for row in page):
                 raise SupabaseStateError(f"Supabase GET {table} returned a malformed row.")
             rows.extend(dict(row) for row in page)
-            if len(page) < page_size:
+            # Self-hosted PostgREST can cap a response below the requested limit.
+            if not page or (not read_until_empty and len(page) < page_size):
                 return rows
-            offset += page_size
+            offset += len(page)
 
     def _rpc(self, function: str, payload: Mapping[str, Any]) -> Any:
         """Call a narrowly allowlisted database function with service credentials."""
@@ -881,23 +886,38 @@ class SupabaseStateStore:
         rows = self._request("GET", "run_records", params=params)
         return tuple(run_record_from_dict(dict(r["value"])) for r in rows)
 
+    def get_production_background_usage(self) -> Sequence[HistoricalBackgroundUse]:
+        # A unique cursor also works when the API caps responses below our page size.
+        params = {
+            "run_kind": "in.(scheduled,manual_production)",
+            "status": "eq.SUCCESS",
+            "media_key": "not.is.null",
+            "or": "(final_safety_passed.is.true,final_safety_passed.is.null)",
+            "select": ("run_id,completed_at,started_at:value->>started_at,"
+                       "pexels_video_ids:value->pexels_video_ids,"
+                       "verified_backgrounds:value->provenance->verified_backgrounds,"
+                       "pexels_videos:value->provenance->pexels_videos"),
+            "order": "run_id.asc",
+            "limit": str(SUPABASE_READ_PAGE_SIZE),
+        }
+        usage = []
+        while True:
+            page = self._request("GET", "run_records", params=params)
+            if not isinstance(page, list):
+                raise SupabaseStateError("Invalid production background history page.")
+            if not page:
+                return tuple(usage)
+            cursor = "gt." + page[-1]["run_id"]
+            if cursor == params.get("run_id"):
+                raise SupabaseStateError("Production background history cursor did not advance.")
+            for row in page:
+                usage.extend(historical_background_usage(row))
+            params = {**params, "run_id": cursor}
+
     def get_recent_content_history(
         self, last_n_runs: int = 30
     ) -> Sequence[dict[str, Any]]:
-        runs = self.list_run_records(limit=last_n_runs)
-        res = []
-        for r in runs:
-            if r.status == "SUCCESS" and r.surah_number is not None:
-                res.append({
-                    "date": r.date,
-                    "slot": r.slot,
-                    "run_id": r.run_id,
-                    "surah_number": r.surah_number,
-                    "first_ayah": r.first_ayah,
-                    "last_ayah": r.last_ayah,
-                    "pexels_video_ids": list(r.pexels_video_ids),
-                })
-        return tuple(res)
+        return recent_content_history_entries(self.list_run_records(limit=last_n_runs))
 
     def list_successful_production_runs(
         self, year: int, month: int
@@ -1163,6 +1183,9 @@ class SupabaseStateStore:
     ) -> str:
         occ = occurred_at or datetime.datetime.now(datetime.timezone.utc).isoformat()
         evt_key = f"{provider}_{provider_asset_id}_{provider_variant_id}_{event_type}_{occ}"
+        if event_type == "usage":
+            # A replay of one render upserts the same event, even on another day.
+            evt_key = json.dumps([event_type, value["run_id"], provider, provider_asset_id, provider_variant_id])
         event_id = f"evt_{hashlib.sha256(evt_key.encode('utf-8')).hexdigest()[:24]}"
         self._request(
             "POST",
@@ -1196,7 +1219,8 @@ class SupabaseStateStore:
             provider_asset_id=provider_asset_id,
             provider_variant_id=provider_variant_id,
             fingerprint=content_sha256,
-            value={"run_id": run_id, **dict(value)},
+            value={**value, "run_id": run_id},
+            occurred_at=value["used_at"],
         )
 
     def record_render_safety_failure(

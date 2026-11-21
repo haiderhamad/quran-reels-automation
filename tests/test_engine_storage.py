@@ -626,6 +626,24 @@ class TestStorageOperationsWithMockClient(unittest.TestCase):
         self.assertEqual(runs[2].slot, "evening")
         self.assertEqual(runs[3].date, "2026-08-21")
 
+    def test_unbounded_background_history_uses_only_generated_production_runs(self):
+        from dataclasses import replace
+        from unittest.mock import patch
+
+        base = RunRecord(run_id="r1", date="2026-11-18", slot="morning",
+                         status="SUCCESS", started_at="2026-11-18T09:00:00Z",
+                         media_key="media/1.mp4", final_safety_passed=True,
+                         pexels_video_ids=(11,), surah_number=2)
+        rows = [replace(base, run_kind="test", slot="test", schedule_slot_id=None), replace(base, media_key=None),
+                replace(base, final_safety_passed=False), base]
+        from engine.state_authority import B2StateStore
+        with patch("engine.state_authority.b2_list_recent_runs", return_value=rows) as read:
+            store = B2StateStore(self.b2_config, self.mock_client)
+            (use,) = store.get_production_background_usage()
+        read.assert_called_once_with(self.mock_client, self.b2_config, limit=None)
+        self.assertEqual((use.provider, use.provider_asset_id), ("pexels", "11"))
+        self.assertEqual(use.used_at, base.started_at)
+
     def test_get_recent_content_history(self) -> None:
         mock_paginator = MagicMock()
         self.mock_client.get_paginator.return_value = mock_paginator

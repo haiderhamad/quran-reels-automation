@@ -45,7 +45,7 @@ from engine.state_authority import (
     STATE_AUTHORITY_SUPABASE,
     get_state_authority,
 )
-from engine.storage import B2Config, StorageError, create_b2_client, load_b2_config_from_env
+from engine.storage import B2Config, HistoricalBackgroundUse, StorageError, create_b2_client, load_b2_config_from_env
 from engine.supabase_state import SupabaseConfig, SupabaseStateStore
 
 
@@ -1056,6 +1056,11 @@ class SupabaseBackgroundPoolRepository:
     Performs zero B2 operations and persists pool state strictly in Supabase.
     """
 
+    _ASSET_ORDER = (
+        "provider.asc,provider_asset_id.asc,provider_variant_id.asc,"
+        "policy_fingerprint.asc,content_sha256.asc"
+    )
+
     def __init__(self, store: SupabaseStateStore):
         self.store = store
 
@@ -1141,8 +1146,9 @@ class SupabaseBackgroundPoolRepository:
         )
 
     def save_usage(self, event: BackgroundUsageEvent) -> str:
-        parts = event.verified_record_id.split(":")
-        sha = parts[3] if len(parts) >= 4 else event.verified_record_id
+        # Pixabay variant IDs can contain a colon (e.g. large:3840x2160).
+        parts = event.verified_record_id.rsplit(":", 2)
+        sha = parts[-2] if len(parts) == 3 else event.verified_record_id
         self.store.record_background_usage(
             provider=event.provider,
             provider_asset_id=str(event.provider_asset_id),
@@ -1206,10 +1212,9 @@ class SupabaseBackgroundPoolRepository:
         return ""
 
     def list_verified(self) -> tuple[VerifiedBackgroundRecord, ...]:
-        rows = self.store._request(
-            "GET",
-            "background_assets",
-            params={"select": "value"},
+        rows = self.store._get_paginated(
+            "background_assets", {"select": "value"}, order=self._ASSET_ORDER,
+            read_until_empty=True,
         )
         records: list[VerifiedBackgroundRecord] = []
         for r in rows:
@@ -1222,10 +1227,11 @@ class SupabaseBackgroundPoolRepository:
         return tuple(records)
 
     def list_usage(self) -> tuple[BackgroundUsageEvent, ...]:
-        rows = self.store._request(
-            "GET",
+        rows = self.store._get_paginated(
             "background_events",
-            params={"event_type": "eq.usage", "select": "value"},
+            {"event_type": "eq.usage", "select": "value"},
+            order="occurred_at.asc,event_id.asc",
+            read_until_empty=True,
         )
         events: list[BackgroundUsageEvent] = []
         for r in rows:
@@ -1281,13 +1287,14 @@ class SupabaseBackgroundPoolRepository:
         }
 
     def stale_record_ids(self) -> set[str]:
-        rows = self.store._request(
-            "GET",
+        rows = self.store._get_paginated(
             "background_assets",
-            params={
+            {
                 "status": "eq.stale",
                 "select": "provider,provider_asset_id,provider_variant_id,content_sha256,policy_fingerprint,value",
             },
+            order=self._ASSET_ORDER,
+            read_until_empty=True,
         )
         stale_ids: set[str] = set()
         for r in rows:
@@ -1302,10 +1309,11 @@ class SupabaseBackgroundPoolRepository:
                 rec_id = val.get("record_id")
                 if rec_id:
                     stale_ids.add(str(rec_id))
-        stale_events = self.store._request(
-            "GET",
+        stale_events = self.store._get_paginated(
             "background_events",
-            params={"event_type": "eq.stale", "select": "value"},
+            {"event_type": "eq.stale", "select": "value"},
+            order="event_id.asc",
+            read_until_empty=True,
         )
         for ev in stale_events:
             val = ev.get("value", {})
@@ -1510,7 +1518,7 @@ def make_provider(name: str, *, api_key: Optional[str] = None) -> BackgroundProv
 
 def select_verified_pool_records(
     records: Sequence[VerifiedBackgroundRecord],
-    usage_events: Sequence[BackgroundUsageEvent],
+    usage_events: Sequence[BackgroundUsageEvent | HistoricalBackgroundUse],
     *,
     required_duration_seconds: float,
     recent_provider_identities: Sequence[tuple[str, str]] = (),
@@ -1609,7 +1617,7 @@ def select_verified_pool_records(
 def background_reuse_warnings(
     selected_records: Sequence[VerifiedBackgroundRecord],
     selectable_records: Sequence[VerifiedBackgroundRecord],
-    usage_events: Sequence[BackgroundUsageEvent],
+    usage_events: Sequence[BackgroundUsageEvent | HistoricalBackgroundUse],
     *,
     recent_provider_identities: Sequence[tuple[str, str]] = (),
 ) -> tuple[dict[str, Any], ...]:

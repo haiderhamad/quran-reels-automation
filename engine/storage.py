@@ -1026,9 +1026,9 @@ def get_run_record_by_key(client: Any, b2_config: B2Config, key: str) -> Optiona
         raise StorageError(f"Failed to get run record from B2: {_safe_error_message(err)}") from err
 
 
-def list_recent_runs(client: Any, b2_config: B2Config, limit: int = 20) -> tuple[RunRecord, ...]:
+def list_recent_runs(client: Any, b2_config: B2Config, limit: Optional[int] = 20) -> tuple[RunRecord, ...]:
     """List recent RunRecords across all slots and dates, sorted newest first."""
-    if limit < 1:
+    if limit is not None and limit < 1:
         return ()
 
     runs_prefix = f"{b2_config.prefix}runs/"
@@ -1055,25 +1055,85 @@ def list_recent_runs(client: Any, b2_config: B2Config, limit: int = 20) -> tuple
         raise StorageError(f"Failed to list recent runs from B2: {_safe_error_message(err)}") from err
 
 
+@dataclass(frozen=True)
+class HistoricalBackgroundUse:
+    provider: str
+    provider_asset_id: str
+    used_at: str
+
+
+def historical_background_usage(
+    row: Mapping[str, Any],
+) -> tuple[HistoricalBackgroundUse, ...]:
+    """Recover dated provider identities without guessing a variant or creating usage events."""
+    for used_at in (row.get("completed_at"), row.get("started_at")):
+        if not isinstance(used_at, str):
+            continue
+        try:
+            parsed = datetime.datetime.fromisoformat(used_at.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if parsed.tzinfo is not None:
+            break
+    else:
+        return ()
+
+    qualified = row.get("verified_backgrounds") or row.get("pexels_videos")
+    identities: set[tuple[str, str]] = set()
+    if qualified:
+        # Both providers once shared the numeric pexels_video_ids field.
+        for clip in qualified:
+            if not isinstance(clip, Mapping):
+                continue
+            provider = clip.get("provider", "pexels")
+            asset_id = str(clip.get("provider_asset_id") or clip.get("video_id") or "")
+            if provider in ("pexels", "pixabay") and asset_id.isdecimal() and int(asset_id) > 0:
+                identities.add((provider, asset_id))
+    else:
+        for asset in row.get("pexels_video_ids") or ():
+            if str(asset).isdecimal() and int(asset) > 0:
+                identities.add(("pexels", str(asset)))
+    return tuple(HistoricalBackgroundUse(provider, asset_id, used_at)
+                 for provider, asset_id in sorted(identities))
+
+
+def background_usage_for_run(run: RunRecord) -> tuple[HistoricalBackgroundUse, ...]:
+    if (run.run_kind not in ("scheduled", "manual_production") or run.status != "SUCCESS"
+            or not run.media_key or run.final_safety_passed is False):
+        return ()
+    return historical_background_usage({
+        "started_at": run.started_at,
+        "completed_at": run.completed_at,
+        "verified_backgrounds": run.provenance.get("verified_backgrounds"),
+        "pexels_videos": run.provenance.get("pexels_videos"),
+        "pexels_video_ids": run.pexels_video_ids,
+    })
+
+
+def recent_content_history_entries(runs: Sequence[RunRecord]) -> tuple[dict[str, Any], ...]:
+    history = []
+    for run in runs:
+        if run.status == "SUCCESS" and run.surah_number is not None:
+            history.append({
+                "surah_number": run.surah_number,
+                "first_ayah": run.first_ayah,
+                "last_ayah": run.last_ayah,
+                "pexels_video_ids": [int(use.provider_asset_id) for use in background_usage_for_run(run)
+                                     if use.provider == "pexels"],
+                "date": run.date,
+                "slot": run.slot,
+                "run_id": run.run_id,
+            })
+    return tuple(history)
+
+
 def get_recent_content_history(
     client: Any,
     b2_config: B2Config,
     last_n_runs: int = 30,
 ) -> tuple[dict[str, Any], ...]:
-    """Retrieve history of recently used Surahs and Pexels video IDs for anti-repetition."""
-    recent_runs = list_recent_runs(client, b2_config, limit=last_n_runs)
-    history = []
-    for r in recent_runs:
-        if r.status == "SUCCESS" and r.surah_number is not None:
-            history.append({
-                "surah_number": r.surah_number,
-                "first_ayah": r.first_ayah,
-                "last_ayah": r.last_ayah,
-                "pexels_video_ids": list(r.pexels_video_ids),
-                "date": r.date,
-                "slot": r.slot,
-            })
-    return tuple(history)
+    """Retrieve history of recently used Surahs and production Pexels video IDs."""
+    return recent_content_history_entries(list_recent_runs(client, b2_config, limit=last_n_runs))
 
 
 def upload_reel(
