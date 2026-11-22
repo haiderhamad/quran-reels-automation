@@ -123,6 +123,8 @@ def verify(container):
             'public.calm_reels_v1_reviewed_passages','INSERT,UPDATE,REFERENCES');""")
         if writable != "f":
             raise RuntimeError(f"Unexpected review registry column privileges for {role}.")
+    queue_regression = ROOT / "tests/fixtures/background_qualification_retry.sql"
+    sql(container, "set local role service_role;\n" + queue_regression.read_text(), role="supabase_admin")
     print(f"Passed {len(migrations)} migrations on {sql(container, 'show server_version;')}.")
     print(json.dumps({"extensions": extensions, "catalog_size": len(expected_keys), **result}, sort_keys=True))
 

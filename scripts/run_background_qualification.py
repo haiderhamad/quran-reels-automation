@@ -133,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
             processed += 1
             status = result.get("status")
             cid = result.get("candidate_id")
-            err = result.get("error_code")
+            err = result.get("last_error_code")
             print(
                 f"[BACKGROUND_QUALIFICATION] Candidate {processed}/{args.max_candidates} "
                 f"candidate_id={cid} final_status={status} error_code={err}"

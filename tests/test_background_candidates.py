@@ -1192,7 +1192,7 @@ class QualificationDeadlineRejectionTests(unittest.TestCase):
             animal_policy_status=animal_status,
         )
 
-    def _qualify_after_deadline(self, scan):
+    def _qualify_with_elapsed_time(self, scan, elapsed=181.0, lease_seconds=900, download_timeout=False):
         candidate = make_candidate(asset="2401")
         store, repo = InMemCandidateStore(), FakePoolRepo()
         store.enqueue_background_candidate("pexels", "2401", "v1", "nature", candidate_metadata(candidate), "PENDING")
@@ -1201,16 +1201,22 @@ class QualificationDeadlineRejectionTests(unittest.TestCase):
             path = Path(tmpdir) / "source.mp4"
 
             def download(*_args, **_kwargs):
+                if download_timeout:
+                    from urllib.error import URLError
+                    from engine.backgrounds import BackgroundSourceError
+
+                    clock[0] = elapsed
+                    raise BackgroundSourceError("Download failed") from URLError(TimeoutError())
                 path.write_bytes(b"source")
                 return DownloadedBackground(candidate, str(path), 6, "a" * 64)
 
             def scan_source(*_args, **_kwargs):
-                clock[0] = 91.0
+                clock[0] = elapsed
                 return scan
 
             result = qualify_one_claimed_candidate(
                 store=store, pool_repository=repo, worker_id="deadline-test",
-                download_fn=download, scan_fn=scan_source,
+                lease_seconds=lease_seconds, download_fn=download, scan_fn=scan_source,
                 monotonic=lambda: clock[0], logger=lambda _: None,
             )
             self.assertFalse(path.exists())
@@ -1219,22 +1225,45 @@ class QualificationDeadlineRejectionTests(unittest.TestCase):
     def test_positive_detection_is_rejected_even_after_deadline(self):
         for subject in ("person", "face", "animal"):
             with self.subTest(subject=subject):
-                result, store, repo = self._qualify_after_deadline(self._scan(subject))
+                result, store, repo = self._qualify_with_elapsed_time(self._scan(subject))
                 self.assertEqual(result["status"], "SAFETY_REJECTED")
                 self.assertEqual(store.rows["pexels:2401:v1"]["error_code"], f"REJECT_{subject.upper()}")
                 self.assertEqual(len(repo.safety_rejected), 1)
                 self.assertEqual(repo.transient, [])
                 self.assertEqual(repo.verified, [])
 
+    def test_full_scan_can_finish_after_previous_90_second_deadline(self):
+        result, _store, repo = self._qualify_with_elapsed_time(
+            self._scan(safe=True, animal_status="CLEAR"), elapsed=150.0,
+        )
+        self.assertEqual(result["status"], "VERIFIED")
+        self.assertEqual(len(repo.verified), 1)
+        self.assertEqual(repo.transient, [])
+
+    def test_download_socket_timeout_is_deferred_by_the_queue(self):
+        result, store, repo = self._qualify_with_elapsed_time(
+            self._scan(), elapsed=60.0, download_timeout=True,
+        )
+        self.assertEqual(result["status"], "TRANSIENT_FAILURE")
+        self.assertEqual(store.rows["pexels:2401:v1"]["error_code"], "CANDIDATE_PROCESSING_TIMEOUT")
+        self.assertEqual(repo.verified, [])
+
+    def test_scan_budget_reserves_time_before_a_short_lease_expires(self):
+        result, _store, repo = self._qualify_with_elapsed_time(
+            self._scan(safe=True, animal_status="CLEAR"), elapsed=40.0, lease_seconds=60,
+        )
+        self.assertEqual(result["status"], "TRANSIENT_FAILURE")
+        self.assertEqual(repo.verified, [])
+
     def test_clean_scan_over_deadline_is_not_verified(self):
-        result, _store, repo = self._qualify_after_deadline(self._scan(safe=True, animal_status="CLEAR"))
+        result, _store, repo = self._qualify_with_elapsed_time(self._scan(safe=True, animal_status="CLEAR"))
         self.assertEqual(result["status"], "TRANSIENT_FAILURE")
         self.assertEqual(len(repo.transient), 1)
         self.assertEqual(repo.verified, [])
         self.assertEqual(repo.safety_rejected, [])
 
     def test_incomplete_scan_without_detections_remains_transient(self):
-        result, _store, repo = self._qualify_after_deadline(self._scan())
+        result, _store, repo = self._qualify_with_elapsed_time(self._scan())
         self.assertEqual(result["status"], "TRANSIENT_FAILURE")
         self.assertEqual(len(repo.transient), 1)
         self.assertEqual(repo.verified, [])
@@ -1255,7 +1284,7 @@ class QualificationDeadlineRejectionTests(unittest.TestCase):
             def scan_source(path, **_kwargs):
                 asset = Path(path).stem
                 scanned.append(asset)
-                clock[0] += 91.0 if asset == "2401" else 1.0
+                clock[0] += 181.0 if asset == "2401" else 1.0
                 return self._scan("face") if asset == "2401" else self._scan(safe=True, animal_status="CLEAR")
 
             for _ in range(3):

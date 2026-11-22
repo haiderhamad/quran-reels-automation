@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from inspect import Parameter, signature
 from typing import Any, Callable, Mapping, Optional, Sequence
+from urllib.error import URLError
 
 from engine.background_pool import (
     CURRENT_SAFETY_POLICY_FINGERPRINT,
@@ -27,7 +28,6 @@ from engine.background_pool import (
     utc_now_iso,
 )
 from engine.background_pool_builder import (
-    DEFAULT_BUILDER_CANDIDATE_TIMEOUT_SECONDS,
     DEFAULT_BUILDER_MAX_FILE_SIZE_BYTES,
     DEFAULT_POOL_MAXIMUM_DURATION_SECONDS,
     DEFAULT_POOL_MINIMUM_DURATION_SECONDS,
@@ -37,6 +37,7 @@ from engine.backgrounds import (
     BACKGROUND_SEARCH_CATEGORIES,
     BackgroundCandidate,
     BackgroundDiscoveryPage,
+    BackgroundSourceError,
     PEXELS_DISCOVERY_ORIENTATION_CYCLE,
     can_produce_native_vertical_crop,
     candidate_cost_rejection_reason,
@@ -56,6 +57,8 @@ DISCOVERY_MAX_CANDIDATES_PER_RUN = 20
 DISCOVERY_VERIFIED_TARGET = 100
 BACKGROUND_SELECTABLE_TARGET = 100
 DEFAULT_LEASE_SECONDS = 900
+QUALIFICATION_CANDIDATE_TIMEOUT_SECONDS = 180.0
+QUALIFICATION_LEASE_RESERVE_SECONDS = 30.0
 DISCOVERY_MAX_PAGE = 5
 DISCOVERY_MAX_API_REQUESTS_PER_RUN = 80
 DISCOVERY_MAX_METADATA_ITEMS_PER_RUN = 1000
@@ -489,6 +492,13 @@ def qualify_one_claimed_candidate(
     variant_id = str(claim.get("provider_variant_id") or "")
     logger(f"[QUALIFICATION] Claimed candidate_id={candidate_id} provider={provider} asset_id={asset_id} variant_id={variant_id}")
     started = monotonic()
+    candidate_timeout = min(
+        QUALIFICATION_CANDIDATE_TIMEOUT_SECONDS, lease_seconds - QUALIFICATION_LEASE_RESERVE_SECONDS,
+    )
+
+    def deadline_reached() -> bool:
+        return monotonic() - started >= candidate_timeout
+
     downloaded = None
     try:
         candidate = candidate_from_metadata(metadata)
@@ -500,11 +510,22 @@ def qualify_one_claimed_candidate(
         logger(f"[QUALIFICATION] candidate_id={candidate_id} metadata_verdict=VALID duration={candidate.duration_seconds}s {candidate.file_width}x{candidate.file_height}")
         target_dir = work_dir or tempfile.gettempdir()
         dl_start = monotonic()
-        downloaded = download_fn(candidate, target_dir=target_dir, timeout=min(DEFAULT_BUILDER_CANDIDATE_TIMEOUT_SECONDS, 60.0), max_file_size_bytes=DEFAULT_BUILDER_MAX_FILE_SIZE_BYTES, abort_check=lambda: monotonic() - started >= DEFAULT_BUILDER_CANDIDATE_TIMEOUT_SECONDS)
+        try:
+            downloaded = download_fn(
+                candidate, target_dir=target_dir, timeout=min(candidate_timeout, 60.0),
+                max_file_size_bytes=DEFAULT_BUILDER_MAX_FILE_SIZE_BYTES, abort_check=deadline_reached,
+            )
+        except BackgroundSourceError as err:
+            cause = err.__cause__
+            if isinstance(cause, URLError):
+                cause = cause.reason
+            if isinstance(cause, TimeoutError) or deadline_reached():
+                raise TimeoutError("CANDIDATE_PROCESSING_TIMEOUT") from err
+            raise
         dl_dur = monotonic() - dl_start
         logger(f"[QUALIFICATION] candidate_id={candidate_id} download_result=SUCCESS bytes={downloaded.file_size_bytes} duration={dl_dur:.2f}s sha256={downloaded.content_sha256[:16]}...")
         scan_start = monotonic()
-        result = scan_fn(downloaded.local_path, config=SafetyConfig(animal_detection_required=True), abort_check=lambda: monotonic() - started >= DEFAULT_BUILDER_CANDIDATE_TIMEOUT_SECONDS)
+        result = scan_fn(downloaded.local_path, config=SafetyConfig(animal_detection_required=True), abort_check=deadline_reached)
         scan_dur = monotonic() - scan_start
         p_count = len(result.person_detections)
         f_count = len(result.face_detections)
@@ -522,7 +543,7 @@ def qualify_one_claimed_candidate(
         )
         # Positive findings already disqualify the source. A later deadline
         # must not turn that rejection into an immediately retryable failure.
-        if not prohibited_subject_found and monotonic() - started >= DEFAULT_BUILDER_CANDIDATE_TIMEOUT_SECONDS:
+        if not prohibited_subject_found and deadline_reached():
             raise TimeoutError("CANDIDATE_PROCESSING_TIMEOUT")
         if not prohibited_subject_found and result.safe and result.animal_policy_status == "CLEAR":
             pool_repository.save_verified(build_verified_record(candidate, content_sha256=downloaded.content_sha256, downloaded_file_size=downloaded.file_size_bytes, scanned_frames=result.frames_scanned, animal_detector=ANIMAL_DETECTOR_ID, animal_classes=ANIMAL_DETECTION_CLASSES, animal_threshold=DEFAULT_ANIMAL_CONFIDENCE_THRESHOLD, animal_verdict="CLEAR"))
