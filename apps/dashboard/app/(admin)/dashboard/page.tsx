@@ -235,10 +235,6 @@ export default async function DashboardPage() {
       <TriggerControls
         publishAllowed={CALM_REELS_V1_MANUAL_PUBLISH_READY && bothChannelsEnabled && rightsAllowed && !platformBlockReason}
         publishBlockedReason={publishBlockedReason}
-        verifiedTestAvailable={
-          config.translation_languages.length === 1
-          && config.translation_languages[0] === "en"
-        }
         facebookConnected={sysStatus.bufferFacebook}
         instagramConnected={sysStatus.bufferInstagram}
       />

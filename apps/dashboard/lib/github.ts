@@ -12,7 +12,7 @@ export interface WorkflowDispatchRequest {
   runId: string;
   slotId?: string;
   force?: boolean;
-  testVerseKey?: "2:21";
+  testVerseKey?: "2:21" | "catalog";
   publishFacebook?: boolean;
   publishInstagram?: boolean;
 }
@@ -49,8 +49,8 @@ export function buildWorkflowDispatchPayload(
   if (request.testVerseKey && request.runKind !== "test") {
     throw new Error("Only test workflow dispatches may include a test verse key.");
   }
-  if (request.testVerseKey && request.testVerseKey !== "2:21") {
-    throw new Error("Unsupported verified test verse key.");
+  if (request.testVerseKey && request.testVerseKey !== "2:21" && request.testVerseKey !== "catalog") {
+    throw new Error("Unsupported test verse selection.");
   }
   return {
     ref,

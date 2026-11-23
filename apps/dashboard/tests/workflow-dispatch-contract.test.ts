@@ -56,4 +56,11 @@ describe("Dashboard to GitHub workflow_dispatch contract", () => {
       testVerseKey: "2:21",
     }, "main")).toThrow("Only test");
   });
+  it("forwards catalog-only selection to the test worker", () => {
+    const payload = buildWorkflowDispatchPayload({
+      runKind: "test", runId: "dashboard-test-1", testVerseKey: "catalog",
+    }, "main");
+    expect(payload.inputs.test_verse_key).toBe("catalog");
+  });
+
 });

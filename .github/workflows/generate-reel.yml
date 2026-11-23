@@ -52,7 +52,7 @@ on:
         type: boolean
         default: false
       test_verse_key:
-        description: "Optional approved test-only verified phrase fixture"
+        description: "Optional test selection (catalog or development fixture)"
         required: false
         type: string
       publish_facebook:

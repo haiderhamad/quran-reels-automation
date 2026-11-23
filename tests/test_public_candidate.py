@@ -47,6 +47,15 @@ class PublicInstallationTests(unittest.TestCase):
         registry = next(migrations.glob("*_owner_v1_reviewed_passage_claim_and_receipts.sql")).read_text()
         self.assertNotRegex(registry.lower(), r"insert into public\.calm_reels_v1_reviewed_passages")
 
+    def test_preview_rejects_changed_translation_and_notes(self):
+        from unittest.mock import patch
+        from apps.dashboard.scripts.generate_preview_workspace import SAMPLES, verify_sample_sources
+
+        sample = SAMPLES[1]
+        for changed in ({"en": sample["en"] + " extra"}, {"footnotes": {**sample["footnotes"], "en": ""}}):
+            with patch.dict(sample, changed), self.assertRaises(ValueError):
+                verify_sample_sources()
+
     def test_catalog_identity_and_code_only_assets(self):
         self.assertEqual(sha256((ROOT / "data/editorial/calm_reels_shortlist_v1.json").read_bytes()).hexdigest(),
                          "df3eea4aefd469c838e3c9c31c58603122b8c8eaab50f0d36ef10d90a181666d")

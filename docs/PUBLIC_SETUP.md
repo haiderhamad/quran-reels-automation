@@ -77,8 +77,6 @@ To select the B2 source, place the verified gzip in your own restricted B2 locat
 
 ## Reviewed panels and exact passages
 
-To check the bilingual 2:35 example without accounts, follow the [local verification steps](../README.md#verify-al-baqarah-235).
-
 The Worker reconstructs the reviewed panels from source hashes and token ranges. It uses the original Uthmani text, the pinned Rowwad edition and the read-92 recitation. The repository includes these display reviews:
 
 | Al-Baqarah | Reviewed subtitles | Panels | Recitation |
@@ -106,7 +104,7 @@ The private database review registry governs joining reviewed multi-ayah ranges.
 
 ### Review a proposal or render the approved panels locally
 
-Use the [local Python and FFmpeg setup](../README.md#verify-al-baqarah-235). From the repository root, run either command:
+Use the [local Python and FFmpeg setup](../README.md#run-the-developer-checks). From the repository root, run either command:
 
 ```sh
 python -m scripts.propose_alignment --verse 2:25

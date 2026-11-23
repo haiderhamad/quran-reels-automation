@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
+import shortlist from "../../../data/editorial/calm_reels_shortlist_v1.json";
 import { StoredConfigSchema } from "../lib/schema";
 import {
   PREVIEW_CASES, DEFAULT_PREVIEW_CASE, DEFAULT_PREVIEW_STYLE, PREVIEW_ARABIC_GAPS,
@@ -14,6 +15,16 @@ const manifest = validatePreviewManifest(JSON.parse(fs.readFileSync(path.join(di
 const defaults = StoredConfigSchema.parse({});
 
 describe("static renderer workspace", () => {
+  it("shows complete, source-matching ayahs from the frozen catalog in every case", () => {
+    const frozen = new Map(shortlist.ayahs.map(({ key, arabic_sha256 }) => [key, arabic_sha256]));
+    for (const previewCase of [...PREVIEW_CASES, "2-line-comparison"] as const) {
+      const { sample } = selectPreview(manifest, defaults, previewCase);
+      expect(frozen.get(sample.verse)).toBe(
+        crypto.createHash("sha256").update(sample.arabic).digest("hex"),
+      );
+    }
+  });
+
   it("ships all native glyph assets and 19,620 layouts with integrity hashes", () => {
     expect(Object.keys(manifest.layouts)).toHaveLength(PREVIEW_LAYOUT_COUNT);
     for (const [name, hash] of Object.entries(manifest.files)) {
@@ -60,11 +71,8 @@ describe("static renderer workspace", () => {
     const config = structuredClone(defaults);
     const before = JSON.stringify(config);
     for (const previewCase of PREVIEW_CASES) selectPreview(manifest, config, previewCase);
-    const dense = selectPreview(manifest, config, "2-line");
     const comparison = selectPreview(manifest, config, "2-line-comparison");
-    expect(dense.sample.label).toBe("Sketchbook");
-    expect(dense.sample.source).toBe("Original typography sample");
-    expect(comparison.sample.label).toBe("Studio window");
+    expect(comparison.sample.verse).toBe("2:169");
     expect(comparison.glyphs[0].visual_line_ranges.length).toBe(2);
     expect(JSON.stringify(config)).toBe(before);
     expect(StoredConfigSchema.parse(JSON.parse(before))).toEqual(config);
@@ -105,6 +113,7 @@ describe("static renderer workspace", () => {
     expect((await loadPreviewCatalog(fetcher)).version).toBe(3);
     expect(fetcher).toHaveBeenCalledWith(PREVIEW_CATALOG_MANIFEST_URL, { cache: "no-cache" });
     await expect(loadPreviewCatalog(vi.fn(async () => new Response("{}")) as typeof fetch)).rejects.toThrow("incomplete");
+    expect(() => validatePreviewManifest({ ...manifest, sample_catalog: undefined })).toThrow("incomplete");
     expect(() => selectPreview({ ...manifest, headers: {} }, defaults, "2-line")).toThrow("missing");
   });
 
