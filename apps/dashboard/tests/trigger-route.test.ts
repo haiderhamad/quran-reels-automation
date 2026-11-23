@@ -110,34 +110,18 @@ describe("POST /api/actions/trigger (Dashboard Operations Control Center)", () =
     expect(triggerWorkflowDispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         runKind: "test",
+        testVerseKey: "catalog",
         publishFacebook: false,
         publishInstagram: false,
       })
     );
   });
 
-  // 5. Generate Test rejects invalid test_verse_key
-  it("rejects generate_test with invalid test_verse_key", async () => {
+  it.each(["112:1", "2:21"])("rejects a dashboard test override for %s", async (testVerseKey) => {
     vi.mocked(getAdminSession).mockResolvedValue(true);
-    const req = createRequest({ action: "generate_test", test_verse_key: "112:1" });
-    const res = await POST(req);
+    const res = await POST(createRequest({ action: "generate_test", test_verse_key: testVerseKey }));
     expect(res.status).toBe(400);
-    const data = await res.json();
-    expect(data.error).toContain("2:21 fixture");
-  });
-
-  // 6. Generate Test with 2:21 checks English translations
-  it("rejects 2:21 test when multi-language translation configured", async () => {
-    vi.mocked(getAdminSession).mockResolvedValue(true);
-    vi.mocked(getStoredConfig).mockResolvedValue({
-      translation_languages: ["en", "de"],
-    } as any);
-
-    const req = createRequest({ action: "generate_test", test_verse_key: "2:21" });
-    const res = await POST(req);
-    expect(res.status).toBe(409);
-    const data = await res.json();
-    expect(data.error).toContain("requires English-only translation display");
+    expect(triggerWorkflowDispatch).not.toHaveBeenCalled();
   });
 
   // 7. Publish Now requires at least one target

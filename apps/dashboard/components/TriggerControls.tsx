@@ -9,13 +9,11 @@ type ActionKind = "test" | "manual_production";
 export function TriggerControls({
   publishAllowed,
   publishBlockedReason,
-  verifiedTestAvailable,
   facebookConnected,
   instagramConnected,
 }: {
   publishAllowed: boolean;
   publishBlockedReason?: string;
-  verifiedTestAvailable: boolean;
   facebookConnected: boolean;
   instagramConnected: boolean;
 }) {
@@ -25,7 +23,6 @@ export function TriggerControls({
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [detailUrl, setDetailUrl] = useState<string | null>(null);
   const [result, setResult] = useState<{ success: boolean; message: string; workflowUrl?: string } | null>(null);
-  const [testVerseKey, setTestVerseKey] = useState<"" | "2:21">("");
   const [publishFacebook, setPublishFacebook] = useState(true);
   const [publishInstagram, setPublishInstagram] = useState(true);
 
@@ -61,7 +58,6 @@ export function TriggerControls({
         body: JSON.stringify({
           action: runKind === "test" ? "generate_test" : "publish_now",
           run_kind: runKind,
-          test_verse_key: runKind === "test" ? testVerseKey : undefined,
           publish_facebook: runKind === "manual_production" ? publishFacebook : undefined,
           publish_instagram: runKind === "manual_production" ? publishInstagram : undefined,
         }),
@@ -99,28 +95,8 @@ export function TriggerControls({
     <div className="card-elevated" style={{ marginTop: "20px" }}>
       <h3 style={{ fontSize: "14px", fontWeight: 600 }}>Publishing</h3>
       <p style={{ color: "var(--text-muted)", fontSize: "12px", marginTop: "2px", marginBottom: "16px" }}>
-        Test generation is private and coverage-safe. Publish Now creates a unique production run.
+        Generate Test Now privately renders an eligible ayah from the frozen catalog. Publish Now creates a production run.
       </p>
-      <label style={{ display: "grid", gap: "5px", maxWidth: "320px", marginBottom: "12px", fontSize: "12px" }}>
-        <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>Test Verse</span>
-        <select
-          value={testVerseKey}
-          onChange={(event) => setTestVerseKey(event.target.value as "" | "2:21")}
-          disabled={loading !== null}
-          className="input"
-          aria-label="Test Verse"
-        >
-          <option value="">Auto — first renderable candidate</option>
-          <option value="2:21" disabled={!verifiedTestAvailable}>
-            2:21 — Verified phrase example
-          </option>
-        </select>
-        {!verifiedTestAvailable && (
-          <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>
-            The verified phrase example is available in English-only mode.
-          </span>
-        )}
-      </label>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
         <button type="button" onClick={() => handleTrigger("test")} disabled={loading !== null} className="btn btn-primary">
           {loading === "test" ? <RefreshCw size={14} className="spin" /> : <Sparkles size={14} />}

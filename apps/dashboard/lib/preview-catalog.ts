@@ -35,7 +35,16 @@ export interface PreviewCatalogManifest {
   overlay_darkness: number;
   subtitle_center: number;
   safe_bottom: number;
-  samples: { id: PreviewSample; label: string; arabic: string; en: string; de: string; source: string }[];
+  sample_catalog: "calm-reels-editorial-shortlist-v1";
+  samples: {
+    id: PreviewSample;
+    verse: string;
+    arabic: string;
+    en: string;
+    de: string;
+    footnotes: Record<"en" | "de", string>;
+    source: Record<"arabic" | "en" | "de", string>;
+  }[];
   glyphs: Record<string, PreviewGlyph>;
   layouts: Record<string, PreviewLayout>;
   headers: Record<string, string>;
@@ -71,7 +80,8 @@ export function selectPreview(manifest: PreviewCatalogManifest, config: StoredCo
 
 export function validatePreviewManifest(value: unknown): PreviewCatalogManifest {
   const m = value as PreviewCatalogManifest;
-  if (!m || m.version !== 3 || m.canvas?.[0] !== reelLayout.width || m.canvas?.[1] !== reelLayout.height
+  if (!m || m.version !== 3 || m.sample_catalog !== "calm-reels-editorial-shortlist-v1"
+    || m.canvas?.[0] !== reelLayout.width || m.canvas?.[1] !== reelLayout.height
     || m.safe_zone?.x !== reelLayout.safeZone.left || m.safe_zone?.y !== reelLayout.safeZone.top
     || m.safe_zone?.right !== reelLayout.width - reelLayout.safeZone.right
     || m.safe_zone?.bottom !== reelLayout.height - reelLayout.safeZone.bottom
@@ -80,7 +90,9 @@ export function validatePreviewManifest(value: unknown): PreviewCatalogManifest 
     || typeof m.overlay_darkness !== "number" || m.overlay_darkness < 0 || m.overlay_darkness > 1
     || !m.layouts || Object.keys(m.layouts).length !== PREVIEW_LAYOUT_COUNT
     || !m.glyphs || Object.values(m.glyphs).some(g => !Array.isArray(g.visual_line_ranges) || !g.visual_line_ranges.length)
-    || !m.headers || !m.files || m.samples?.map(s => s.id).join(",") !== [...PREVIEW_CASES, "2-line-comparison"].join(",")) {
+    || !m.headers || !m.files || !Array.isArray(m.samples)
+    || m.samples.map(s => s?.id).join(",") !== [...PREVIEW_CASES, "2-line-comparison"].join(",")
+    || m.samples.some(s => !/^2:[1-9]\d*$/.test(s.verse) || !s.source || !s.footnotes)) {
     throw new Error("Static preview catalog is incomplete or has the wrong version.");
   }
   return m;

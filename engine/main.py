@@ -90,7 +90,7 @@ from engine.verses import (
     VerseCandidate, VerseSelectionError, select_verse_candidate,
     select_owner_v1_ayah_candidate,
 )
-from engine.calm_reels_cycle import owner_ordered_keys, FreshCycleError
+from engine.calm_reels_cycle import FreshCycleError, owner_ordered_keys, require_owner_ayah_source
 from engine.owner_reviewed_passages import REVIEWED_OWNER_PASSAGES, ReviewedPassageApproval
 from engine.reel_publication_policy import TRANSLATION_HASH_FIELDS
 from engine.reel_theme_policy import (
@@ -140,6 +140,7 @@ ALLOWED_RUN_KINDS = ("scheduled", "manual_production", "test")
 DEFAULT_MAX_TEST_CANDIDATE_ATTEMPTS = 64
 MAX_TEST_CANDIDATE_ATTEMPTS = 293
 TEST_VERIFIED_VERSE_KEYS = ("2:21",)
+TEST_VERSE_SELECTIONS = (*TEST_VERIFIED_VERSE_KEYS, "catalog")
 DEFAULT_MAX_BACKGROUND_SEARCH_SECONDS = 600.0
 DEFAULT_MAX_CANDIDATE_PROCESSING_SECONDS = 45.0
 
@@ -322,9 +323,9 @@ class RunRequest:
                 raise GenerationError("test_verse_key is permitted only for test runs.")
             if self.requested_ayah_range is not None:
                 raise GenerationError("test_verse_key and requested_ayah_range cannot be combined.")
-            if self.test_verse_key not in TEST_VERIFIED_VERSE_KEYS:
+            if self.test_verse_key not in TEST_VERSE_SELECTIONS:
                 raise GenerationError(
-                    "test_verse_key must name an explicitly approved verified test fixture."
+                    "test_verse_key must select the catalog or name an explicitly approved verified test fixture."
                 )
         if (
             isinstance(self.max_test_candidate_attempts, bool)
@@ -350,7 +351,7 @@ class RunRequest:
             if language in self.translation_languages
         )
         object.__setattr__(self, "translation_languages", canonical_languages)
-        if self.test_verse_key is not None and canonical_languages != ("en",):
+        if self.test_verse_key in TEST_VERIFIED_VERSE_KEYS and canonical_languages != ("en",):
             raise GenerationError(
                 "The verified 2:21 test fixture requires English-only translation display."
             )
@@ -548,6 +549,9 @@ def generate_reel(
 
     try:
         production = request.run_kind in ("scheduled", "manual_production")
+        catalog_test = request.test_verse_key == "catalog"
+        test_catalog_keys = frozenset(owner_ordered_keys()) if catalog_test else frozenset()
+        fixed_test_verse = None if catalog_test else request.test_verse_key
         production_authorization = request.production_authorization
         if production and production_authorization is None and request.owner_ayah_key is None:
             raise GenerationError("PRODUCTION_AUTHORIZATION_REQUIRED")
@@ -674,9 +678,13 @@ def generate_reel(
         elif request.owner_ayah_key is not None:
             requested_surah = int(request.owner_ayah_key.split(":", 1)[0])
             candidate_surahs = [requested_surah] if requested_surah in candidate_surahs else []
-        elif request.test_verse_key is not None:
-            requested_surah = int(request.test_verse_key.split(":", 1)[0])
+        elif fixed_test_verse is not None:
+            requested_surah = int(fixed_test_verse.split(":", 1)[0])
             candidate_surahs = [requested_surah] if requested_surah in candidate_surahs else []
+        elif catalog_test:
+            catalog_surahs = {int(key.split(":", 1)[0]) for key in test_catalog_keys}
+            candidate_surahs = [surah for surah in candidate_surahs if surah in catalog_surahs]
+            rng.shuffle(candidate_surahs)
         elif auto_test_selection and request.translation_languages == ("en",):
             # Put Surahs with approved test fixtures first, then keep
             # randomized diversity for fallback candidates.
@@ -770,7 +778,10 @@ def generate_reel(
                     if production_authorization is not None
                     else eligible_verse_keys()
                 )
-                if production and f"{surah_num}:{timing.ayah_number}" not in approved_keys:
+                verse_key = f"{surah_num}:{timing.ayah_number}"
+                if production and verse_key not in approved_keys:
+                    continue
+                if catalog_test and verse_key not in test_catalog_keys:
                     continue
                 try:
                     translated_ayahs = {
@@ -786,6 +797,12 @@ def generate_reel(
                     q_ayah = quran_data.get_ayah(surah_num, timing.ayah_number)
                 except Exception:
                     continue
+
+                if catalog_test:
+                    try:
+                        require_owner_ayah_source(verse_key, q_ayah.arabic_text)
+                    except FreshCycleError:
+                        continue
 
                 verse_timing = to_engine_verse_timing(
                     timing,
@@ -809,7 +826,7 @@ def generate_reel(
                     single_ayah_candidates: list[VerseCandidate] = []
                     for record in eligible_timings:
                         verse_key = f"{record.surah}:{record.ayah}"
-                        if request.test_verse_key is not None and verse_key != request.test_verse_key:
+                        if fixed_test_verse is not None and verse_key != fixed_test_verse:
                             continue
                         duration = record.end_time - record.start_time
                         is_verified_fixture = (

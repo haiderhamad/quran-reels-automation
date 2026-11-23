@@ -56,6 +56,7 @@ export function SubtitlePreview({ config, onRestoreDefaultStyle }: {
     return () => { active = false; };
   }, [assetKey, retry]);
 
+  const sample = selected?.sample;
   const ready = selected && manifest && readyAssets === assetKey;
   const failure = error || selectionError;
   const gap = config.arabic_translation_gap_px;
@@ -71,7 +72,7 @@ export function SubtitlePreview({ config, onRestoreDefaultStyle }: {
     const shadow = { off: 0, very_soft: 0.7, soft: 1, medium: 1.5 }[config.text_shadow];
     const shadowOpacity = { off: 0, very_soft: 47 / 255, soft: 71 / 255, medium: 111 / 255 }[config.text_shadow];
     return <svg xmlns="http://www.w3.org/2000/svg" viewBox={detail ? `0 ${top - 40} 1080 ${bottom - top + 80}` : "0 0 1080 1920"}
-      role="img" aria-label={`${previewCase} renderer layout, Arabic gap ${gap}px${detail ? ", enlarged text detail" : ", 1080 by 1920"}`}>
+      role="img" aria-label={`Al-Baqarah ${selected.sample.verse}, ${previewCase} renderer layout, Arabic gap ${gap}px${detail ? ", enlarged text detail" : ", 1080 by 1920"}`}>
       <defs>
         {[0, 1].map(i => <filter key={i} id={`${filterId}-${i}`} x="-10%" y="-10%" width="120%" height="120%" colorInterpolationFilters="sRGB">
           <feMorphology in="SourceAlpha" operator="dilate" radius={i === 0 ? arOutline : trOutline} result="expanded" />
@@ -122,12 +123,12 @@ export function SubtitlePreview({ config, onRestoreDefaultStyle }: {
           onClick={() => setPreviewCase(value)}>{`${index + 1} ${index === 0 ? "Line" : "Lines"}`}</button>)}
       </div>
     </div>
-    {previewCase === "2-line" && <div className="preview-background-row">
-      <label htmlFor={`${id}-sample`}>Two-line sample</label>
-      <select id={`${id}-sample`} className="form-input" value={comparison ? "comparison" : "dense"}
-        onChange={e => setComparison(e.target.value === "comparison")}>
-        <option value="dense">Sketchbook</option>
-        <option value="comparison">Studio window</option>
+    {previewCase === "2-line" && manifest && <div className="preview-background-row">
+      <label htmlFor={`${id}-ayah`}>Two-line ayah</label>
+      <select id={`${id}-ayah`} className="form-input" value={selectedSample}
+        onChange={e => setComparison(e.target.value === "2-line-comparison")}>
+        {manifest.samples.filter(sample => sample.id === "2-line" || sample.id === "2-line-comparison")
+          .map(sample => <option key={sample.id} value={sample.id}>Al-Baqarah {sample.verse}</option>)}
       </select>
     </div>}
     <div className="preview-background-row">
@@ -151,12 +152,24 @@ export function SubtitlePreview({ config, onRestoreDefaultStyle }: {
       </div>}
     </div>
     <div className="static-preview-summary" aria-live="polite">
-      <span>{selected ? `Typography sample · ${selected.sample.label} · Arabic ${selected.glyphs[0].visual_line_ranges.length} line(s) · ${config.translation_languages.map((lang, i) => `${lang.toUpperCase()} ${selected!.glyphs[i + 1].visual_line_ranges.length} line(s)`).join(" · ")}` : "Static libass catalog"}</span>
+      <span>{selected ? `Al-Baqarah · ${selected.sample.verse} · Arabic ${selected.glyphs[0].visual_line_ranges.length} line(s) · ${config.translation_languages.map((lang, i) => `${lang.toUpperCase()} ${selected!.glyphs[i + 1].visual_line_ranges.length} line(s)`).join(" · ")}` : "Static libass catalog"}</span>
       {selected && selected.glyphs[0].visual_line_ranges.length > 1 && <span>Arabic clear line gap: {selected.glyphs[0].visual_line_ranges.slice(1).map(([top], i) => `${top - selected!.glyphs[0].visual_line_ranges[i][1]}px`).join(" / ")} · including marks</span>}
       <span>1080 × 1920 · 9:16 · All measurements are final Reel pixels</span>
     </div>
     {selected?.exceedsLines && <p className="preview-fit-warning" role="status">This sample exceeds your maximum lines. The preview shows the full sample. Each production panel receives its own fit check.</p>}
-    <p className="form-hint preview-note">The preview uses original studio-themed sample text. Line counts are measured at the largest font size. Smaller fonts may wrap differently. Libass supplies glyphs and positions. Browser effects approximate outline, shadow and backing. Header shadows use the default setting.</p>
+    {sample && <div className="form-hint preview-note">
+      <a href="https://tanzil.net/">{sample.source.arabic}</a>
+      {config.translation_languages.map(lang => <React.Fragment key={lang}>
+        {" · "}<a href={`https://quranenc.com/en/browse/${lang === "en" ? "english" : "german"}_rwwad`}>
+          {lang.toUpperCase()} {sample.source[lang]}
+        </a>
+      </React.Fragment>)}
+      {config.translation_languages.map(lang => sample.footnotes[lang] && <details key={lang}>
+        <summary>{lang.toUpperCase()} translation notes</summary>
+        <p>{sample.footnotes[lang]}</p>
+      </details>)}
+    </div>}
+    <p className="form-hint preview-note">The 1–3 line presets refer to the largest Arabic font size. Smaller fonts may wrap differently. Libass supplies glyphs and positions. Browser effects approximate outline, shadow and backing.</p>
     <div className="static-preview-actions"><button type="button" className="btn btn-secondary" onClick={onRestoreDefaultStyle}><RotateCcw size={14} /> Restore Default Style</button><span className="form-hint">Changes the unsaved visual settings only.</span></div>
   </section>;
 }

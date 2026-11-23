@@ -25,7 +25,7 @@ from engine.production_authorization import (
     load_production_authorization_catalog,
 )
 from engine.scheduler import production_schedule_entries
-from engine.main import GenerationError, TEST_VERIFIED_VERSE_KEYS, RunRequest, RunResult, generate_reel
+from engine.main import GenerationError, TEST_VERSE_SELECTIONS, RunRequest, RunResult, generate_reel
 from engine.background_pool import (
     BackgroundPoolRepository,
     BackgroundUsageEvent,
@@ -155,9 +155,9 @@ class JobRequest:
         if self.test_verse_key is not None:
             if resolved_kind != "test":
                 raise JobError("test_verse_key is permitted only for test runs.")
-            if self.test_verse_key not in TEST_VERIFIED_VERSE_KEYS:
+            if self.test_verse_key not in TEST_VERSE_SELECTIONS:
                 raise JobError(
-                    "test_verse_key must name an explicitly approved verified test fixture."
+                    "test_verse_key must select the catalog or name an explicitly approved verified test fixture."
                 )
         if self.requested_run_id is not None:
             requested = self.requested_run_id.strip()
@@ -2035,9 +2035,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     parser.add_argument(
         "--test-verse-key",
-        choices=list(TEST_VERIFIED_VERSE_KEYS),
+        choices=list(TEST_VERSE_SELECTIONS),
         required=False,
-        help="Optional test-only reviewed phrase fixture (currently 2:21)",
+        help="Test selection from the frozen catalog or a development fixture",
     )
     parser.add_argument("--publish-facebook", action=argparse.BooleanOptionalAction, default=True, help="Manual production target: Facebook")
     parser.add_argument("--publish-instagram", action=argparse.BooleanOptionalAction, default=True, help="Manual production target: Instagram")

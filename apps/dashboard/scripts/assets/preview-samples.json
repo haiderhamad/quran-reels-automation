@@ -1,34 +1,66 @@
 [
   {
     "id": "1-line",
-    "label": "Pencils",
-    "arabic": "ثَلَاثَةُ أَقْلَامٍ",
-    "en": "Three pencils.",
-    "de": "Drei Stifte.",
-    "source": "Original typography sample"
+    "verse": "2:52",
+    "arabic": "ثُمَّ عَفَوْنَا عَنكُم مِّنۢ بَعْدِ ذَٰلِكَ لَعَلَّكُمْ تَشْكُرُونَ",
+    "en": "Yet We pardoned you after that, so that you may be grateful.",
+    "de": "Hierauf verziehen Wir euch nach alledem, auf dass ihr dankbar wäret.",
+    "footnotes": {
+      "en": "",
+      "de": ""
+    },
+    "source": {
+      "arabic": "Tanzil Uthmani 1.1",
+      "en": "QuranEnc / Rowwad Translation Center 1.0.21",
+      "de": "QuranEnc / Rowwad Translation Center 1.0.16"
+    }
   },
   {
     "id": "2-line",
-    "label": "Sketchbook",
-    "arabic": "رَسَمَتْ لَيْلَى دَرَّاجَةً زَرْقَاءَ فِي دَفْتَرِهَا، مِنْ أَسْلَاكِ الْعَجَلَاتِ إِلَى الْجَرَسِ عَلَى الْمِقْوَدِ.",
-    "en": "Layla drew a blue bicycle in her sketchbook, from the spokes of the wheels to the bell on the handlebar.",
-    "de": "Layla zeichnete ein blaues Fahrrad in ihr Skizzenbuch, von den Speichen der Räder bis zur Klingel am Lenker.",
-    "source": "Original typography sample"
+    "verse": "2:43",
+    "arabic": "وَأَقِيمُوا۟ ٱلصَّلَوٰةَ وَءَاتُوا۟ ٱلزَّكَوٰةَ وَٱرْكَعُوا۟ مَعَ ٱلرَّٰكِعِينَ",
+    "en": "And establish prayer, give zakah, and bow [to Allah] with those who bow[27].",
+    "de": "Und verrichtet das Gebet, entrichtet die Pflichtabgabe und verbeugt euch (im Gebet) mit den sich Verbeugenden!",
+    "footnotes": {
+      "en": "[27] This command is to the Children of Israel to bow down in obedience to Allah with Muhammad, as the Muslims do, i.e., embrace Islam.",
+      "de": ""
+    },
+    "source": {
+      "arabic": "Tanzil Uthmani 1.1",
+      "en": "QuranEnc / Rowwad Translation Center 1.0.21",
+      "de": "QuranEnc / Rowwad Translation Center 1.0.16"
+    }
   },
   {
     "id": "3-line",
-    "label": "Paper houses",
-    "arabic": "نَصْنَعُ بُيُوتًا صَغِيرَةً مِنَ الْوَرَقِ عَلَى طَاوِلَةِ الْوَرْشَةِ، وَنَرْسُمُ سَتَائِرَ فِي كُلِّ نَافِذَةٍ، وَنُلَوِّنُ كُلَّ بَابٍ أَمَامِيٍّ بِلَوْنٍ مُخْتَلِفٍ.",
-    "en": "We make small paper houses at the workshop table. We draw curtains in each window and give every front door a different color.",
-    "de": "Am Werktisch bauen wir kleine Häuser aus Papier. In jedes Fenster zeichnen wir Vorhänge, und jede Haustür bekommt eine andere Farbe.",
-    "source": "Original typography sample"
+    "verse": "2:112",
+    "arabic": "بَلَىٰ مَنْ أَسْلَمَ وَجْهَهُۥ لِلَّهِ وَهُوَ مُحْسِنٌ فَلَهُۥٓ أَجْرُهُۥ عِندَ رَبِّهِۦ وَلَا خَوْفٌ عَلَيْهِمْ وَلَا هُمْ يَحْزَنُونَ",
+    "en": "On the contrary, whoever submits himself to Allah and is a doer of good will have his reward with his Lord. They will have no fear, nor will they grieve.",
+    "de": "Aber nein! Wer sich Allah völlig hingibt und dabei ein Gutes Tuender ist, der hat seinen Lohn bei seinem Herrn. Und sie soll keine Furcht überkommen, noch sollen sie traurig sein.",
+    "footnotes": {
+      "en": "",
+      "de": ""
+    },
+    "source": {
+      "arabic": "Tanzil Uthmani 1.1",
+      "en": "QuranEnc / Rowwad Translation Center 1.0.21",
+      "de": "QuranEnc / Rowwad Translation Center 1.0.16"
+    }
   },
   {
     "id": "2-line-comparison",
-    "label": "Studio window",
-    "arabic": "يَجِفُّ الطِّلَاءُ قُرْبَ نَافِذَةِ الْمَرْسَمِ، وَتَقِفُ الْفُرَشُ فِي مَرْطَبَانٍ عَلَى الرَّفِّ.",
-    "en": "Paint dries beside the studio window, and the brushes stand in a jar on the shelf.",
-    "de": "Am Atelierfenster trocknet Farbe, und die Pinsel stehen in einem Glas auf dem Regal.",
-    "source": "Original typography sample"
+    "verse": "2:169",
+    "arabic": "إِنَّمَا يَأْمُرُكُم بِٱلسُّوٓءِ وَٱلْفَحْشَآءِ وَأَن تَقُولُوا۟ عَلَى ٱللَّهِ مَا لَا تَعْلَمُونَ",
+    "en": "He only orders you to commit evil and immoral deeds, and to say concerning Allah what you do not know[74].",
+    "de": "Er befiehlt euch ja nur Böses und Schändliches, und dass ihr gegen Allah aussagen sollt, was ihr nicht wisst.",
+    "footnotes": {
+      "en": "[74] Falsely claiming that Allah made one thing lawful and another unlawful.",
+      "de": ""
+    },
+    "source": {
+      "arabic": "Tanzil Uthmani 1.1",
+      "en": "QuranEnc / Rowwad Translation Center 1.0.21",
+      "de": "QuranEnc / Rowwad Translation Center 1.0.16"
+    }
   }
 ]

@@ -39,24 +39,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unsupported operations action." }, { status: 400 });
     }
 
-    if (testVerseKey !== undefined && (runKind !== "test" || testVerseKey !== "2:21")) {
-      return NextResponse.json(
-        { error: "test_verse_key must be the approved 2:21 fixture on a test run." },
-        { status: 400 }
-      );
-    }
-
-    if (testVerseKey === "2:21") {
-      const config = await getStoredConfig();
-      if (
-        config.translation_languages.length !== 1
-        || config.translation_languages[0] !== "en"
-      ) {
-        return NextResponse.json(
-          { error: "The verified 2:21 phrase example requires English-only translation display." },
-          { status: 409 }
-        );
-      }
+    if (testVerseKey !== undefined) {
+      return NextResponse.json({ error: "Dashboard tests select an ayah from the frozen catalog." }, { status: 400 });
     }
 
     const publishFacebook = body.publish_facebook === true;
@@ -106,7 +90,13 @@ export async function POST(request: NextRequest) {
 
     const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
     const runId = `${runKind === "test" ? "test" : "manual"}_${stamp}_${randomUUID().slice(0, 8)}`;
-    const result = await triggerWorkflowDispatch({ runKind, runId, testVerseKey, publishFacebook, publishInstagram });
+    const result = await triggerWorkflowDispatch({
+      runKind,
+      runId,
+      testVerseKey: runKind === "test" ? "catalog" : undefined,
+      publishFacebook,
+      publishInstagram,
+    });
     if (!result.success) {
       return NextResponse.json({ error: result.message }, { status: 500 });
     }
