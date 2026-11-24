@@ -2,8 +2,8 @@ name: Qualify Background Candidates
 
 on:
   schedule:
-    # Full-source person/face/animal CV qualification twice daily, after discovery (UTC).
-    - cron: "37 2,14 * * *"
+    # Full-source person/face/animal CV qualification every two hours (UTC).
+    - cron: "37 */2 * * *"
   workflow_dispatch:
     inputs:
       max_candidates:

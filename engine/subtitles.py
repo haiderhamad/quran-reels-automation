@@ -25,6 +25,8 @@ MODE_PROGRESSIVE_PHRASE = "progressive_phrase_sync"
 MODE_STATIC_FULL_AYAH = "static_full_ayah"
 MODE_PROGRESSIVE_WORD = "progressive_word_highlight"
 
+MIN_ARABIC_FONT_SIZE = 72
+
 VALID_SUBTITLE_MODES = (MODE_PROGRESSIVE_PHRASE, MODE_STATIC_FULL_AYAH, MODE_PROGRESSIVE_WORD)
 
 # --- Text Outline ---
@@ -193,8 +195,10 @@ class SubtitleConfig:
         object.__setattr__(self, "sura_header_top_offset", clamp_header_offset(self.sura_header_top_offset))
         if self.subtitle_mode not in VALID_SUBTITLE_MODES:
             raise SubtitleError(f"Invalid subtitle_mode: {self.subtitle_mode}")
-        if not (72 <= self.arabic_font_size <= 180):
-            raise SubtitleError(f"arabic_font_size must be 72–180, got {self.arabic_font_size}")
+        if not (MIN_ARABIC_FONT_SIZE <= self.arabic_font_size <= 180):
+            raise SubtitleError(
+                f"arabic_font_size must be {MIN_ARABIC_FONT_SIZE}–180, got {self.arabic_font_size}"
+            )
         if not (30 <= self.translation_font_size <= 80):
             raise SubtitleError(f"translation_font_size must be 30–80, got {self.translation_font_size}")
         if not (1 <= self.arabic_max_lines <= 5):

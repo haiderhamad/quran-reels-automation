@@ -52,7 +52,11 @@ After cloning, open `docs/diagrams/reel-workflow-animated.html` in a browser to 
 
 [![Operations Overview showing automation paused, Facebook and Instagram connection status, and the controls for a private test, publishing and background discovery.](docs/images/dashboard-overview.webp)](docs/images/dashboard-overview.webp)
 
-**Settings → Subtitle & Visual Style** controls languages, type size and spacing. English allows up to three lines per panel, or a lower limit you select. German allows up to four. The preview and Worker use these limits and the Worker also checks available screen space.
+**Background Pool** shows which clips are ready and which are still in the safety queue. The example below uses demo data. With screening enabled, GitHub Actions checks up to three candidates every two hours. [Set up background screening](docs/PUBLIC_SETUP.md#build-a-background-pool)
+
+[![Background Pool showing 100 ready clips, their usage breakdown, and a separate safety queue with 30 clips waiting and one being checked.](docs/images/dashboard-background-pool.webp)](docs/images/dashboard-background-pool.webp)
+
+**Settings → Subtitle & Visual Style** controls languages, type size and spacing. English allows up to three lines per panel, or a lower limit you select. German allows up to four. If a panel exceeds the two-line Arabic limit, the Worker reduces its Arabic font size and allows up to three lines within the safe area.
 
 [![Subtitle settings and the Al-Baqarah 2:43 layout preview in Arabic, English and German.](docs/images/dashboard-subtitle-settings.webp)](docs/images/dashboard-subtitle-settings.webp)
 

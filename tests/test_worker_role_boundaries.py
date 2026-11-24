@@ -54,10 +54,10 @@ class WorkerRoleBoundariesTests(TestCase):
             runner.assert_called_once()
             self.assertEqual(runner.call_args.args[0].run_kind, "test")
 
-    def test_github_one_prescan_and_two_cv_qualification_runs_daily(self):
+    def test_github_daily_prescan_and_two_hour_cv_qualification(self):
         checks = (
             ("background-discovery.yml", 'cron: "17 1 * * *"', "discover_background_candidates.py"),
-            ("background-qualification.yml", 'cron: "37 2,14 * * *"', "run_background_qualification.py"),
+            ("background-qualification.yml", 'cron: "37 */2 * * *"', "run_background_qualification.py"),
         )
         for filename, cron, script in checks:
             with self.subTest(workflow=filename):

@@ -39,9 +39,9 @@ class QualificationRunnerTests(unittest.TestCase):
     def test_target_rechecked_before_each_claim(self):
         self.assertEqual(self.run_worker([99, 99, 100]).call_count, 1)
 
-    def test_workflow_default_and_bounded_timeout_preserve_schedule(self):
+    def test_workflow_qualifies_every_two_hours_with_existing_bounds(self):
         text = (Path(__file__).resolve().parents[1] / '.github/workflows/background-qualification.yml').read_text()
-        self.assertIn('cron: "37 2,14 * * *"', text)
+        self.assertIn('cron: "37 */2 * * *"', text)
         self.assertIn('timeout-minutes: 15', text)
         self.assertIn("inputs.max_candidates || '3'", text)
         self.assertIn("inputs.target_selectable || '250'", text)

@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass, field, replace
+from functools import partial
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
@@ -55,6 +56,7 @@ from engine.subtitles import (
     HEADER_HIDDEN,
     HIGHLIGHT_PHRASE_FADE,
     MODE_STATIC_FULL_AYAH,
+    MIN_ARABIC_FONT_SIZE,
     SAFE_MARGIN_TOP,
     SAFE_MARGIN_BOTTOM,
     SAFE_MARGIN_SIDES,
@@ -85,6 +87,7 @@ DEFAULT_ARABIC_FONT_NAME = "Amiri Quran"
 DEFAULT_ARABIC_TITLE_FONT_NAME = "Amiri"
 DEFAULT_ENGLISH_FONT_NAME = "Noto Sans"
 DEFAULT_ARABIC_FONT_SIZE = 180
+ARABIC_FIT_STEP_PX = 4
 DEFAULT_ENGLISH_FONT_SIZE = 60
 DEFAULT_ARABIC_TITLE_FONT_SIZE = 72
 DEFAULT_ENGLISH_TITLE_FONT_SIZE = 42
@@ -110,6 +113,7 @@ _ASS_TEXT_BOUNDS_CACHE: dict[tuple[object, ...], TextBlockBounds] = {}
 @dataclass(frozen=True)
 class _MeasuredPhrasePanel:
     panel: MultilingualPhrasePanel
+    arabic_font_size: int
     arabic_bounds: TextBlockBounds
     translation_bounds: tuple[TextBlockBounds, ...]
     layout: MultilingualSubtitleGroupLayout
@@ -327,6 +331,7 @@ class SubtitlePanelPreflight:
     verse_key: str
     panel_index: int
     arabic_lines: int
+    arabic_font_size: int
     translation_lines: tuple[tuple[str, int], ...]
     visible_translation_stack_gaps: tuple[int, ...]
 
@@ -846,7 +851,7 @@ def _select_measured_phrase_plan(
     fonts_dir: str,
     ffmpeg_bin: str,
 ) -> tuple[RenderAyah, list[_MeasuredPhrasePanel]]:
-    """Measure one authorized plan without changing source text or font size."""
+    """Measure one authorized plan, preserving its text and timing."""
     sub_cfg = config.subtitle_config
     ayah = resolve_render_ayah_subtitle_plan(ayah, config)
     if (ayah.subtitle_mode == SUBTITLE_MODE_UNVERIFIED_ALIGNMENT_PREVIEW
@@ -914,16 +919,19 @@ def _select_measured_phrase_plan(
         measured: list[_MeasuredPhrasePanel] = []
         plan_fits = True
         for panel in phrase_panels:
-            arabic_bounds = measure_ass_text_block(
+            measure_arabic = partial(
+                measure_ass_text_block,
                 panel.arabic_text,
                 font_name=config.arabic_font_name,
-                font_size=sub_cfg.arabic_font_size,
                 video_width=config.width,
                 video_height=config.height,
                 margin_sides=SAFE_MARGIN_SIDES,
                 fonts_dir=fonts_dir,
                 ffmpeg_bin=ffmpeg_bin,
             )
+            preferred_size = sub_cfg.arabic_font_size
+            arabic_bounds = measure_arabic(font_size=preferred_size)
+            needs_arabic_fallback = sub_cfg.arabic_max_lines == 2 and arabic_bounds.line_count > 2
             translation_bounds = tuple(
                 measure_ass_text_block(
                     segment.text,
@@ -937,7 +945,7 @@ def _select_measured_phrase_plan(
                 )
                 for segment in panel.translations
             )
-            if arabic_bounds.line_count > sub_cfg.arabic_max_lines:
+            if arabic_bounds.line_count > sub_cfg.arabic_max_lines and not needs_arabic_fallback:
                 last_fit_error = f"Arabic renders as {arabic_bounds.line_count} lines"
                 last_language = "ar"
                 last_font_size = sub_cfg.arabic_font_size
@@ -965,37 +973,64 @@ def _select_measured_phrase_plan(
                 plan_fits = False
                 break
 
-            try:
-                layout = calculate_multilingual_subtitle_group_layout(
-                    arabic_bounds=arabic_bounds,
-                    translation_bounds=translation_bounds,
-                    config=sub_cfg,
-                    center_y=SUBTITLE_CENTER_Y,
-                    video_width=config.width,
-                    video_height=config.height,
+            candidate_sizes: Sequence[int] = (preferred_size,)
+            line_limit = sub_cfg.arabic_max_lines
+            if needs_arabic_fallback:
+                line_limit = 3
+                candidate_sizes = range(
+                    max(MIN_ARABIC_FONT_SIZE, preferred_size - ARABIC_FIT_STEP_PX),
+                    MIN_ARABIC_FONT_SIZE - ARABIC_FIT_STEP_PX,
+                    -ARABIC_FIT_STEP_PX,
                 )
-            except SubtitleError as error:
-                last_fit_error = str(error)
-                plan_fits = False
-                break
-            if (
-                layout.group_top_y < SAFE_MARGIN_TOP
-                or layout.group_bottom_y > config.height - SAFE_MARGIN_BOTTOM
-            ):
-                last_fit_error = "exceeds the mobile-safe vertical subtitle area"
+
+            for candidate_size in candidate_sizes:
+                font_size = max(MIN_ARABIC_FONT_SIZE, candidate_size)
+                if font_size != preferred_size:
+                    arabic_bounds = measure_arabic(font_size=font_size)
+                if arabic_bounds.line_count > line_limit:
+                    last_fit_error = f"Arabic renders as {arabic_bounds.line_count} lines"
+                    last_language = "ar"
+                    last_font_size = font_size
+                    last_allowed_lines = line_limit
+                    last_required_lines = arabic_bounds.line_count
+                    last_panel_index = panel.panel_index
+                    continue
+
                 last_language = None
                 last_font_size = None
                 last_allowed_lines = None
                 last_required_lines = None
                 last_panel_index = panel.panel_index
+                try:
+                    layout = calculate_multilingual_subtitle_group_layout(
+                        arabic_bounds=arabic_bounds,
+                        translation_bounds=translation_bounds,
+                        config=sub_cfg,
+                        center_y=SUBTITLE_CENTER_Y,
+                        video_width=config.width,
+                        video_height=config.height,
+                    )
+                except SubtitleError as error:
+                    last_fit_error = str(error)
+                    continue
+                if (
+                    layout.group_top_y < SAFE_MARGIN_TOP
+                    or layout.group_bottom_y > config.height - SAFE_MARGIN_BOTTOM
+                ):
+                    last_fit_error = "exceeds the mobile-safe vertical subtitle area"
+                    continue
+
+                measured.append(_MeasuredPhrasePanel(
+                    panel=panel,
+                    arabic_font_size=font_size,
+                    arabic_bounds=arabic_bounds,
+                    translation_bounds=translation_bounds,
+                    layout=layout,
+                ))
+                break
+            else:
                 plan_fits = False
                 break
-            measured.append(_MeasuredPhrasePanel(
-                panel=panel,
-                arabic_bounds=arabic_bounds,
-                translation_bounds=translation_bounds,
-                layout=layout,
-            ))
 
         if plan_fits:
             return ayah, measured
@@ -1068,6 +1103,7 @@ def preflight_subtitle_layout(
                 verse_key=measured.panel.verse_key,
                 panel_index=measured.panel.panel_index,
                 arabic_lines=measured.arabic_bounds.line_count,
+                arabic_font_size=measured.arabic_font_size,
                 translation_lines=tuple(
                     (segment.language, bounds.line_count)
                     for segment, bounds in zip(
@@ -1366,13 +1402,15 @@ def generate_ass_subtitles(
                 )
 
             escaped_ar = escape_ass_text(panel.arabic_text)
+            ar_font_size = measured_panel.arabic_font_size
+            ar_size_tag = f"\\fs{ar_font_size}" if ar_font_size != sub_cfg.arabic_font_size else ""
             ar_positions = arabic_line_position_tags(panel.arabic_text,
-                font_size=sub_cfg.arabic_font_size, video_width=config.width,
+                font_size=ar_font_size, video_width=config.width,
                 video_height=config.height, margin_sides=SAFE_MARGIN_SIDES,
                 fonts_dir=fonts_dir, anchor_y=layout.arabic_anchor_y, anchor_x=layout.anchor_x)
             for ar_pos_tag in ar_positions:
                 ar_fade = fade_tag if sub_cfg.effective_highlight_style == HIGHLIGHT_PHRASE_FADE else ""
-                lines.append(f"Dialogue: 10,{p_start_ts},{p_end_ts},QuranPhraseAr,,0,0,0,,{{{ar_pos_tag}{ar_fade}}}{escaped_ar}")
+                lines.append(f"Dialogue: 10,{p_start_ts},{p_end_ts},QuranPhraseAr,,0,0,0,,{{{ar_size_tag}{ar_pos_tag}{ar_fade}}}{escaped_ar}")
             for segment, anchor_y in zip(panel.translations, layout.translation_anchor_ys):
                 escaped_translation = escape_ass_text(segment.text)
                 translation_pos = f"\\pos({layout.anchor_x},{anchor_y})"

@@ -26,7 +26,14 @@ The Buffer caption credits Quran Foundation and names Rowwad Translation Center,
 
 ## Build a background pool
 
-**On GitHub Actions**, use your private default branch. Set the repository variable `QURAN_REELS_BACKGROUND_ENABLED=true` after configuring Pexels, Pixabay and Supabase. **Discover Background Candidates** records provider metadata. **Qualify Background Candidates** downloads candidates, screens the full video and records the result. You can run these workflows manually or let their included schedules fill the pool. Setting `BACKGROUND_DISCOVERY_ENABLED=false` or `BACKGROUND_QUALIFICATION_ENABLED=false` pauses the corresponding job.
+**On GitHub Actions**, use your private default branch. Set `QURAN_REELS_BACKGROUND_ENABLED=true` after configuring Pexels, Pixabay and Supabase. You can run either workflow manually or use its schedule.
+
+| Workflow | Schedule (UTC) | What it does |
+| --- | --- | --- |
+| Discover Background Candidates | Daily at 01:17 | Finds Pexels and Pixabay clips and records them in the candidate queue. |
+| Qualify Background Candidates | Every two hours at minute 37 | Downloads and screens up to three candidates per scheduled run. It stops when the pool reaches 250 selectable clips. |
+
+Set `BACKGROUND_DISCOVERY_ENABLED=false` or `BACKGROUND_QUALIFICATION_ENABLED=false` to pause the corresponding job. In the Dashboard, **Background Pool → Ready for Reels** shows how many unique clips are available. Candidates awaiting their safety scan are listed in the queue below.
 
 **On a Mac**, use the Python environment and pinned models from the [developer checks](../README.md#run-the-developer-checks). Set `STATE_AUTHORITY=supabase`, your Supabase URL and service-role key, and both provider keys in the local environment. From the repository root run:
 
