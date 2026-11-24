@@ -6,6 +6,8 @@ Create vertical Quran recitation videos with Arabic text, English or German subt
 
 ## Example Reel
 
+https://github.com/user-attachments/assets/1faa36a2-a88e-4f55-8c51-f2e6196a96e6
+
 Al-Baqarah 2:45, recited by Yasser Al-Dosari. [Original Instagram post](https://www.instagram.com/p/DgDFWHODmsi/)
 
 <a id="get-the-code"></a>
