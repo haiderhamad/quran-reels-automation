@@ -186,9 +186,9 @@ class SubtitleConfig:
     subtitle_backing: str = BACKING_SHADOW
 
     def line_limit_for_translation(self, language: str) -> int:
-        # The historical shared setting now controls only English.
-        if language == "en":
-            return min(self.translation_max_lines, TRANSLATION_MAX_LINES["en"])
+        # Normalize the former English cap of three to the current cap.
+        if language == "en" and self.translation_max_lines < 3:
+            return self.translation_max_lines
         return TRANSLATION_MAX_LINES[language]
 
     def __post_init__(self) -> None:

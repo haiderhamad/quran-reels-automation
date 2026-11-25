@@ -973,17 +973,14 @@ def _select_measured_phrase_plan(
                 plan_fits = False
                 break
 
-            candidate_sizes: Sequence[int] = (preferred_size,)
-            line_limit = sub_cfg.arabic_max_lines
-            if needs_arabic_fallback:
-                line_limit = 3
-                candidate_sizes = range(
-                    max(MIN_ARABIC_FONT_SIZE, preferred_size - ARABIC_FIT_STEP_PX),
-                    MIN_ARABIC_FONT_SIZE - ARABIC_FIT_STEP_PX,
-                    -ARABIC_FIT_STEP_PX,
-                )
-
-            for candidate_size in candidate_sizes:
+            # If the whole subtitle stack overflows the Safe Zone, retry with
+            # smaller Arabic text even when its original line count fits.
+            line_limit = 3 if needs_arabic_fallback else sub_cfg.arabic_max_lines
+            first_size = (
+                max(MIN_ARABIC_FONT_SIZE, preferred_size - ARABIC_FIT_STEP_PX)
+                if needs_arabic_fallback else preferred_size
+            )
+            for candidate_size in range(first_size, MIN_ARABIC_FONT_SIZE - ARABIC_FIT_STEP_PX, -ARABIC_FIT_STEP_PX):
                 font_size = max(MIN_ARABIC_FONT_SIZE, candidate_size)
                 if font_size != preferred_size:
                     arabic_bounds = measure_arabic(font_size=font_size)

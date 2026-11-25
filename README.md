@@ -62,7 +62,7 @@ After cloning, open `docs/diagrams/reel-workflow-animated.html` in a browser to 
 
 [![Background Pool showing 100 ready clips, their usage breakdown, and a separate safety queue with 30 clips waiting and one being checked.](docs/images/dashboard-background-pool.webp)](docs/images/dashboard-background-pool.webp)
 
-**Settings → Subtitle & Visual Style** controls languages, type size and spacing. English allows up to three lines per panel, or a lower limit you select. German allows up to four. If a panel exceeds the two-line Arabic limit, the Worker reduces its Arabic font size and allows up to three lines within the safe area.
+**Settings → Subtitle & Visual Style** controls languages, type size and spacing. English and German each allow up to four lines per panel. You can also set a lower English limit of one or two lines. If the subtitle stack needs more room, the Worker reduces the Arabic font size to fit the safe area. When Arabic exceeds its default two-line limit, the Worker may use up to three Arabic lines.
 
 [![Subtitle settings and the Al-Baqarah 2:43 layout preview in Arabic, English and German.](docs/images/dashboard-subtitle-settings.webp)](docs/images/dashboard-subtitle-settings.webp)
 

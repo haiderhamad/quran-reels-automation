@@ -27,7 +27,7 @@ describe("StoredConfigSchema", () => {
     expect(parsed.arabic_font_size).toBe(180);
     expect(parsed.translation_font_size).toBe(50);
     expect(parsed.arabic_max_lines).toBe(2);
-    expect(parsed.translation_max_lines).toBe(3);
+    expect(parsed.translation_max_lines).toBe(4);
     expect(parsed.arabic_translation_gap_px).toBe(80);
     expect(parsed.translation_stack_gap_px).toBe(80);
     expect(parsed.publishing_schedule).toEqual([
@@ -74,8 +74,8 @@ describe("StoredConfigSchema", () => {
     expect(parsed.subtitle_backing).toBe("soft_translucent");
   });
 
-  it("preserves lower English limits and caps previously valid values at three", () => {
-    for (const [saved, effective] of [[1, 1], [2, 2], [3, 3], [4, 3], [5, 3]]) {
+  it("allows four English lines and preserves explicitly lower settings", () => {
+    for (const [saved, effective] of [[1, 1], [2, 2], [3, 4], [4, 4], [5, 4]]) {
       expect(StoredConfigSchema.parse({ translation_max_lines: saved }).translation_max_lines).toBe(effective);
     }
     for (const value of [0, 3.5, 6]) {

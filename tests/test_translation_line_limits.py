@@ -23,8 +23,8 @@ class TranslationLineLimitTests(unittest.TestCase):
             _, panels = _select_measured_phrase_plan(ayah, config, fonts_dir="", ffmpeg_bin="ffmpeg")
         return panels
 
-    def test_german_four_lines_fit_alone_and_beside_three_english_lines(self):
-        for counts in ({"de": 4}, {"en": 3, "de": 4}):
+    def test_four_lines_fit_in_each_language_at_the_legacy_default(self):
+        for counts in ({"en": 4}, {"de": 4}, {"en": 4, "de": 4}):
             with self.subTest(counts=counts):
                 panels = self.measure_panel(counts)
                 self.assertEqual(len(panels), 1)
@@ -32,7 +32,7 @@ class TranslationLineLimitTests(unittest.TestCase):
 
     def test_errors_report_the_offending_language_and_its_effective_limit(self):
         for counts, setting, language, limit in (
-            ({"en": 4, "de": 4}, 5, "en", 3), ({"en": 3, "de": 5}, 3, "de", 4),
+            ({"en": 5, "de": 4}, 5, "en", 4), ({"en": 3, "de": 5}, 3, "de", 4),
             ({"en": 2, "de": 4}, 1, "en", 1), ({"en": 3, "de": 4}, 2, "en", 2),
         ):
             with self.subTest(counts=counts, setting=setting):
@@ -41,11 +41,28 @@ class TranslationLineLimitTests(unittest.TestCase):
                 self.assertEqual((ctx.exception.language, ctx.exception.allowed_lines, ctx.exception.required_lines),
                                  (language, limit, counts[language]))
 
+    def test_arabic_shrinks_to_fit_the_combined_safe_zone_even_with_two_lines(self):
+        config = build_render_config_from_stored_config({"arabic_font_size": 160, "translation_max_lines": 4})
+        translations = (RenderTranslation("en", "en"), RenderTranslation("de", "de"))
+        ayah = RenderAyah(2, 1, "arabic", "", "", 0, 4000, translations)
+
+        def measure(text, *, font_size, **kwargs):
+            if text == "arabic":
+                return TextBlockBounds(-50, 0, 50, font_size * 4, 2)
+            return TextBlockBounds(-50, 0, 50, 470, 4)
+
+        with patch("engine.renderer.measure_ass_text_block", side_effect=measure):
+            _, (panel,) = _select_measured_phrase_plan(ayah, config, fonts_dir="", ffmpeg_bin="ffmpeg")
+        self.assertEqual(panel.arabic_font_size, 152)
+        self.assertEqual(panel.arabic_bounds.line_count, 2)
+        self.assertEqual([bounds.line_count for bounds in panel.translation_bounds], [4, 4])
+        self.assertLessEqual(panel.layout.group_bottom_y, 1800)
+
     def test_safe_area_remains_enforced_at_allowed_line_counts(self):
         with self.assertRaisesRegex(SubtitlePreflightError, "exceed the fixed text Safe Zone"):
             self.measure_panel({"en": 3, "de": 4}, height=800)
 
-    def test_missing_configuration_defaults_english_to_three(self):
-        self.assertEqual(SubtitleConfig().translation_max_lines, 3)
+    def test_missing_configuration_defaults_english_to_four(self):
+        self.assertEqual(SubtitleConfig().translation_max_lines, 4)
         for saved in ({}, StoredConfig(), stored_config_from_dict({})):
-            self.assertEqual(build_render_config_from_stored_config(saved).subtitle_config.translation_max_lines, 3)
+            self.assertEqual(build_render_config_from_stored_config(saved).subtitle_config.translation_max_lines, 4)

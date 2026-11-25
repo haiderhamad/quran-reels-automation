@@ -81,7 +81,7 @@ class ArabicOverflowFitTests(unittest.TestCase):
         translations = (replace(self.translations[0], text=" ".join([self.translations[0].text] * 14)), self.translations[1])
         with self.assertRaises(SubtitlePreflightError) as caught:
             preflight_subtitle_layout(self.request(self.ayah(57, 3, translations)), self.config)
-        self.assertEqual((caught.exception.language, caught.exception.allowed_lines), ("en", 3))
+        self.assertEqual((caught.exception.language, caught.exception.allowed_lines), ("en", 4))
 
     def test_minimum_size_can_fit_three_lines_without_further_shrinking(self):
         config = replace(self.config, subtitle_config=replace(self.config.subtitle_config, arabic_font_size=72))
